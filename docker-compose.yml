@@ -1,0 +1,39 @@
+# phantom-ui-navigator/docker-compose.yml
+# Dev local — hot reload + tous les services
+
+version: "3.9"
+
+services:
+  phantom:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+      - /app/__pycache__
+    environment:
+      - GCP_PROJECT_ID=phantom-ui-navigator
+      - GCP_REGION=us-central1
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/phantom-sa-key.json
+      - GEMINI_MODEL=gemini-2.0-flash
+      - STORAGE_BUCKET=phantom-screenshots-157502772725
+      - PUBSUB_TOPIC_SCREENSHOTS=phantom-screenshots
+      - PUBSUB_TOPIC_ANALYSIS=phantom-analysis
+      - PUBSUB_TOPIC_ACTIONS=phantom-actions
+      - BROWSER_HEADLESS=true
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+      - API_RELOAD=true
+      - LOG_LEVEL=INFO
+      - CORS_ORIGINS=http://localhost:3000,http://localhost:8000
+    env_file:
+      - .env
+    command: uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/api/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3

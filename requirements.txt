@@ -1,0 +1,35 @@
+# Phantom UI Navigator — Dependencies
+# Gemini Live Agent Challenge (Devpost)
+
+# === Core Framework ===
+fastapi
+uvicorn[standard]
+
+# === Google Cloud ===
+google-cloud-firestore
+google-cloud-storage
+google-cloud-pubsub
+google-cloud-secret-manager
+google-cloud-texttospeech
+google-auth
+
+# === Gemini AI ===
+google-genai
+google-adk
+
+# === Browser Automation ===
+playwright
+
+# === Image Processing ===
+Pillow
+
+# === Utilities ===
+python-dotenv
+pydantic
+pydantic-settings
+httpx
+websockets
+
+# === Dev / Test ===
+pytest
+pytest-asyncio
