@@ -21,6 +21,7 @@ env/
 ENV/
 
 # Secrets & credentials — NEVER commit these
+.env
 phantom-sa-key.json
 *.json.bak
 
