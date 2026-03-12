@@ -67,8 +67,9 @@ def get_gemini_client() -> Optional[genai.Client]:
         logger.info("💰 Utilise les crédits GCP ($300 free tier) — pas de limite AI Studio")
         return _gemini_client
     except Exception as e:
-        logger.warning(f"⚠️ Vertex AI non disponible : {e}")
-        logger.info("🔄 Fallback vers API key AI Studio...")
+        logger.error(f"❌ Impossible d'initialiser Vertex AI (GCP): {e}")
+        logger.error("🛑 VEUILLEZ EXÉCUTER DANS VOTRE TERMINAL : gcloud auth application-default login")
+        logger.info("🔄 Fallback vers la clé API AI Studio (limite de 20 requêtes/jour)...")
 
     # ── Try 2: API key from .env (AI Studio) ─────────────────
     api_key = settings.gemini_api_key

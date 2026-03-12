@@ -186,7 +186,8 @@ async def start_session(req: StartSessionRequest):
     3. Prend un premier screenshot + analyse
     """
     if phantom.is_running:
-        raise HTTPException(400, "Session déjà active. Arrêtez-la d'abord.")
+        logger.warning("⚠️ Session déjà active (probablement suite à un crash/reload). Arrêt forcé...")
+        await stop_session()
 
     logger.info(f"🚀 Nouvelle session — URL: {req.url}")
     
