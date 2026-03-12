@@ -189,59 +189,78 @@ async def start_session(req: StartSessionRequest):
         raise HTTPException(400, "Session déjà active. Arrêtez-la d'abord.")
 
     logger.info(f"🚀 Nouvelle session — URL: {req.url}")
-
-    # Démarrer le Screenshot Agent
-    phantom.screenshot_agent = ScreenshotAgent()
-    session_id = await phantom.screenshot_agent.start_browser(req.url)
-    phantom.session_id = session_id
-
-    # Premier screenshot + analyse
-    metadata = await phantom.screenshot_agent.take_screenshot()
-    screenshot_bytes = await phantom.screenshot_agent.page.screenshot(type="png")
-    phantom.current_ui_state = await phantom.analyzer_agent.analyze_screenshot(
-        screenshot_bytes
-    )
-
-    # Initialiser l'Action Agent
-    phantom.action_agent = ActionAgent(
-        page=phantom.screenshot_agent.page,
-        analyzer=phantom.analyzer_agent,
-    )
-
+    
+    # On marque la session active immédiatement
     phantom.is_running = True
     phantom.accessibility_mode = req.accessibility_mode
 
-    # Broadcast aux WebSocket clients
-    await broadcast({
-        "type": "session_started",
-        "session_id": session_id,
-        "url": req.url,
-        "ui_state": json.loads(phantom.current_ui_state.to_json()),
-    })
+    try:
+        # Démarrer le Screenshot Agent
+        phantom.screenshot_agent = ScreenshotAgent()
+        session_id = await phantom.screenshot_agent.start_browser(req.url)
+        phantom.session_id = session_id
 
-    return {
-        "session_id": session_id,
-        "url": req.url,
-        "elements_found": len(phantom.current_ui_state.elements),
-        "page_context": phantom.current_ui_state.page_context,
-        "ui_state": json.loads(phantom.current_ui_state.to_json()),
-    }
+        # Premier screenshot + analyse
+        metadata = await phantom.screenshot_agent.take_screenshot()
+        screenshot_bytes = await phantom.screenshot_agent.page.screenshot(type="png")
+        phantom.current_ui_state = await phantom.analyzer_agent.analyze_screenshot(
+            screenshot_bytes
+        )
+
+        # Initialiser l'Action Agent
+        phantom.action_agent = ActionAgent(
+            page=phantom.screenshot_agent.page,
+            analyzer=phantom.analyzer_agent,
+        )
+
+        # Broadcast aux WebSocket clients
+        await broadcast({
+            "type": "session_started",
+            "session_id": session_id,
+            "url": req.url,
+            "ui_state": json.loads(phantom.current_ui_state.to_json()),
+        })
+
+        return {
+            "session_id": session_id,
+            "url": req.url,
+            "elements_found": len(phantom.current_ui_state.elements),
+            "page_context": phantom.current_ui_state.page_context,
+            "ui_state": json.loads(phantom.current_ui_state.to_json()),
+        }
+    except Exception as e:
+        logger.error(f"❌ Crash au démarrage de la session : {e}")
+        # Nettoyage radical en cas d'erreur
+        phantom.is_running = False
+        phantom.session_id = None
+        if phantom.screenshot_agent:
+            try:
+                await phantom.screenshot_agent.close()
+            except:
+                pass
+        raise HTTPException(500, f"Erreur de démarrage: {str(e)}")
 
 
 @app.post("/api/session/stop")
 async def stop_session():
     """Arrête la session en cours."""
-    if not phantom.is_running:
-        raise HTTPException(400, "Aucune session active.")
+    if not phantom.is_running and phantom.session_id is None:
+        return {"status": "already_stopped"}
 
-    if phantom.screenshot_agent:
-        phantom.screenshot_agent.stop_capture_loop()
-        await phantom.screenshot_agent.close()
-
-    phantom.is_running = False
-    phantom.session_id = None
-
-    await broadcast({"type": "session_stopped"})
+    logger.info("⏹️ Arrêt de la session...")
+    try:
+        if phantom.screenshot_agent:
+            phantom.screenshot_agent.stop_capture_loop()
+            await phantom.screenshot_agent.close()
+    except Exception as e:
+        logger.error(f"⚠️ Erreur lors de la fermeture du navigateur: {e}")
+    finally:
+        phantom.is_running = False
+        phantom.session_id = None
+        phantom.screenshot_agent = None
+        phantom.action_agent = None
+        
+        await broadcast({"type": "session_stopped"})
 
     return {"status": "stopped"}
 

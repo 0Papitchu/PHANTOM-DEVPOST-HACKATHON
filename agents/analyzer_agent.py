@@ -214,15 +214,40 @@ class AnalyzerAgent:
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
                     temperature=0.1,  # Précision maximale
+                    max_output_tokens=8192,  # Prévenir la troncature JSON
                 ),
             )
 
             if not response:
                 return UIState(raw_description="Gemini API unavailable after retries")
 
-            # Parse la réponse JSON
-            result_text = response.text
-            result_data = json.loads(result_text)
+            # Parse la réponse JSON (gère le format markdown ```json de Vertex AI)
+            result_text = response.text.strip()
+            if result_text.startswith("```json"):
+                result_text = result_text[7:]
+            if result_text.startswith("```"):
+                result_text = result_text[3:]
+            if result_text.endswith("```"):
+                result_text = result_text[:-3]
+            result_text = result_text.strip()
+
+            try:
+                result_data = json.loads(result_text)
+            except json.JSONDecodeError as e:
+                # Si le JSON a été tronqué malgré max_output_tokens, on tente un "repair" basique
+                # Parfois Google coupe au milieu du tableau "elements"
+                logger.warning(f"⚠️ JSON partiellement tronqué, tentative de réparation... ({e})")
+                if '"elements": [' in result_text and not result_text.endswith('}'):
+                    # Trouve la dernière accolade fermante valide d'un élément
+                    last_obj_end = result_text.rfind('}')
+                    if last_obj_end > 0:
+                        result_text = result_text[:last_obj_end+1] + "]}"
+                        result_data = json.loads(result_text)
+                    else:
+                        raise e
+                else:
+                    raise e
+                    
             ui_state = UIState.from_dict(result_data)
 
             logger.info(

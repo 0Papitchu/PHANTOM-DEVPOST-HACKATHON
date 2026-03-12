@@ -13,6 +13,7 @@ Shared by all agents for robust Gemini API calls.
 
 import asyncio
 import logging
+import os
 import time
 from typing import Optional
 
@@ -38,12 +39,38 @@ _gemini_client: Optional[genai.Client] = None
 def get_gemini_client() -> Optional[genai.Client]:
     """
     Returns a singleton Gemini client.
-    Tries API key from settings, then Secret Manager.
+    Priority order:
+      1. Vertex AI (uses GCP credits — $300 free tier)
+      2. API key from .env (AI Studio free tier — very low quotas)
+      3. API key from Secret Manager (production)
     """
     global _gemini_client
     if _gemini_client is not None:
         return _gemini_client
 
+    # ── Try 1: Vertex AI (uses GCP $300 free credits) ────────
+    # Works with SA key file OR gcloud Application Default Credentials
+    creds_path = settings.google_application_credentials
+    if creds_path and os.path.exists(creds_path):
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = os.path.abspath(creds_path)
+
+    try:
+        _gemini_client = genai.Client(
+            vertexai=True,
+            project=settings.gcp_project_id,
+            location=settings.gcp_region,
+        )
+        logger.info(
+            f"🧠 Gemini client (Vertex AI) initialisé — "
+            f"projet {settings.gcp_project_id}, modèle {settings.gemini_model}"
+        )
+        logger.info("💰 Utilise les crédits GCP ($300 free tier) — pas de limite AI Studio")
+        return _gemini_client
+    except Exception as e:
+        logger.warning(f"⚠️ Vertex AI non disponible : {e}")
+        logger.info("🔄 Fallback vers API key AI Studio...")
+
+    # ── Try 2: API key from .env (AI Studio) ─────────────────
     api_key = settings.gemini_api_key
     if not api_key:
         try:
@@ -59,7 +86,8 @@ def get_gemini_client() -> Optional[genai.Client]:
             return None
 
     _gemini_client = genai.Client(api_key=api_key)
-    logger.info(f"🧠 Gemini client (singleton) initialisé — modèle {settings.gemini_model}")
+    logger.info(f"🧠 Gemini client (API key) initialisé — modèle {settings.gemini_model}")
+    logger.warning("⚠️ Mode AI Studio — quotas limités. Utilisez Vertex AI pour les crédits GCP.")
     return _gemini_client
 
 

@@ -2,9 +2,13 @@
 
 ## EN COURS
 
-[ANTIGRAVITY] [2026-03-06] — Browser verification des fixes techniques — fichiers touchés : agents/*.py, api/main.py
+_Aucune tâche en cours._
 
 ## TERMINÉ
+
+[ANTIGRAVITY] [2026-03-12] — Validation finale des tests réels (Craigslist, Google Flights) + Fix JSON truncation + Fix session deadlock — fichiers : agents/analyzer_agent.py, api/main.py
+
+[ANTIGRAVITY] [2026-03-06] — Browser verification des fixes techniques — fichiers touchés : agents/*.py, api/main.py
 
 [ANTIGRAVITY] [2026-03-06] — Fix singleton Gemini client + retry/backoff + WS bug + ADK integration + progress broadcasts — fichiers : agents/gemini_utils.py (NEW), agents/adk_agents.py (NEW), agents/analyzer_agent.py, agents/action_agent.py, api/main.py, requirements.txt
 

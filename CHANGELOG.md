@@ -1,5 +1,17 @@
 # CHANGELOG — Phantom UI Navigator
 
+## [v0.5.1] — 2026-03-12 — ANTIGRAVITY
+
+### Modifié
+- `agents/gemini_utils.py` — Migration vers Vertex AI via Application Default Credentials (ADC) pour utiliser les crédits GCP ($300 tiers) et esquiver les quotas stricts d'AI Studio.
+
+### Corrigé
+- **BUG CRITIQUE** : Gemini 2.0 sur Vertex AI retourne parfois le JSON dans des blocs markdown (````json ... ````). Modifié `analyzer_agent.py` pour stripper ces balises et éviter une `JSONDecodeError`.
+- **BUG TRONCATURE** : Passage de `max_output_tokens` à `8192` et implémentation d'une auto-réparation "best-effort" pour les tableaux JSON d'éléments coupés prématurément.
+- **DEADLOCK SESSION** : Fixé un bug dans `api/main.py` causant l'erreur "Session déjà active". Les endpoints `/api/session/start` et `stop` sont maintenant encapsulés dans un try/finally strict garantissant la clôture du process `Playwright`.
+
+---
+
 ## [v0.5.0] — 2026-03-06 — ANTIGRAVITY
 
 ### Ajouté
