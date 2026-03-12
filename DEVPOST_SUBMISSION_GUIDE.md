@@ -16,9 +16,214 @@ gcloud config get-value project
 gcloud run services list
 
 # 3. Show the real-time logs of the Phantom service to prove it's handling requests
-gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=phantom-ui-navigator" --limit 10
+gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=phantom-ui" --limit 10
+
 ```
 *Tip for the video:* Run `gcloud run services list`, point out the URL it outputs (which should match your demo URL), and then run the logs command to show recent traffic. This is irrefutable proof of GCP usage.
+randradesilva7598@cloudshell:~ (phantom-ui-navigator)$ gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=phantom-ui" --limit 10
+---
+insertId: 69b32eda000206480ab94a08
+labels:
+  instanceId: 00da6cd2c40c6c683d0fb38de1e4d6bbd26e200d10811b3bed9c9713026ee6f48bcb72e3450c6e17c49c7a6623182b2982ebc4767ca705af0eb00810512f8678f0bf15f6ccfe6f0705882ad91274d8d9fc30
+logName: projects/phantom-ui-navigator/logs/run.googleapis.com%2Fstdout
+receiveTimestamp: '2026-03-12T21:23:38.320040521Z'
+resource:
+  labels:
+    configuration_name: phantom-ui
+    location: us-central1
+    project_id: phantom-ui-navigator
+    revision_name: phantom-ui-00005-9hn
+    service_name: phantom-ui
+  type: cloud_run_revision
+textPayload: 'INFO:     169.254.169.126:9670 - "GET /api/state HTTP/1.1" 200 OK'
+timestamp: '2026-03-12T21:23:38.132680Z'
+---
+insertId: 69b32eda000203b54d51a4c9
+labels:
+  instanceId: 00da6cd2c40c6c683d0fb38de1e4d6bbd26e200d10811b3bed9c9713026ee6f48bcb72e3450c6e17c49c7a6623182b2982ebc4767ca705af0eb00810512f8678f0bf15f6ccfe6f0705882ad91274d8d9fc30
+logName: projects/phantom-ui-navigator/logs/run.googleapis.com%2Fstderr
+receiveTimestamp: '2026-03-12T21:23:38.240657210Z'
+resource:
+  labels:
+    configuration_name: phantom-ui
+    location: us-central1
+    project_id: phantom-ui-navigator
+    revision_name: phantom-ui-00005-9hn
+    service_name: phantom-ui
+  type: cloud_run_revision
+textPayload: '21:23:38 │ phantom.analyzer     │ INFO    │ 📋 Contexte : LinkedIn landing
+  page with options to sign up or sign in'
+timestamp: '2026-03-12T21:23:38.132021Z'
+---
+insertId: 69b32eda0002039ae84fc9a3
+labels:
+  instanceId: 00da6cd2c40c6c683d0fb38de1e4d6bbd26e200d10811b3bed9c9713026ee6f48bcb72e3450c6e17c49c7a6623182b2982ebc4767ca705af0eb00810512f8678f0bf15f6ccfe6f0705882ad91274d8d9fc30
+logName: projects/phantom-ui-navigator/logs/run.googleapis.com%2Fstderr
+receiveTimestamp: '2026-03-12T21:23:38.240657210Z'
+resource:
+  labels:
+    configuration_name: phantom-ui
+    location: us-central1
+    project_id: phantom-ui-navigator
+    revision_name: phantom-ui-00005-9hn
+    service_name: phantom-ui
+  type: cloud_run_revision
+textPayload: 21:23:38 │ phantom.analyzer     │ INFO    │ ✅ Analyse terminée — 13 éléments
+  détectés
+timestamp: '2026-03-12T21:23:38.131994Z'
+---
+insertId: 69b32eda0001faf375ef9343
+labels:
+  instanceId: 00da6cd2c40c6c683d0fb38de1e4d6bbd26e200d10811b3bed9c9713026ee6f48bcb72e3450c6e17c49c7a6623182b2982ebc4767ca705af0eb00810512f8678f0bf15f6ccfe6f0705882ad91274d8d9fc30
+logName: projects/phantom-ui-navigator/logs/run.googleapis.com%2Fstderr
+receiveTimestamp: '2026-03-12T21:23:38.240657210Z'
+resource:
+  labels:
+    configuration_name: phantom-ui
+    location: us-central1
+    project_id: phantom-ui-navigator
+    revision_name: phantom-ui-00005-9hn
+    service_name: phantom-ui
+  type: cloud_run_revision
+textPayload: '21:23:38 │ httpx                │ INFO    │ HTTP Request: POST https://us-central1-aiplatform.googleapis.com/v1beta1/projects/phantom-ui-navigator/locations/us-central1/publishers/google/models/gemini-2.0-flash:generateContent
+  "HTTP/1.1 200 OK"'
+timestamp: '2026-03-12T21:23:38.129779Z'
+---
+insertId: 69b32ed00008cb2551f06fde
+labels:
+  instanceId: 00da6cd2c40c6c683d0fb38de1e4d6bbd26e200d10811b3bed9c9713026ee6f48bcb72e3450c6e17c49c7a6623182b2982ebc4767ca705af0eb00810512f8678f0bf15f6ccfe6f0705882ad91274d8d9fc30
+logName: projects/phantom-ui-navigator/logs/run.googleapis.com%2Fstderr
+receiveTimestamp: '2026-03-12T21:23:28.914200370Z'
+resource:
+  labels:
+    configuration_name: phantom-ui
+    location: us-central1
+    project_id: phantom-ui-navigator
+    revision_name: phantom-ui-00005-9hn
+    service_name: phantom-ui
+  type: cloud_run_revision
+textPayload: '21:23:28 │ google_genai.models  │ INFO    │ AFC is enabled with max
+  remote calls: 10.'
+timestamp: '2026-03-12T21:23:28.576293Z'
+---
+insertId: 69b32ed00008c86dc10875ef
+labels:
+  instanceId: 00da6cd2c40c6c683d0fb38de1e4d6bbd26e200d10811b3bed9c9713026ee6f48bcb72e3450c6e17c49c7a6623182b2982ebc4767ca705af0eb00810512f8678f0bf15f6ccfe6f0705882ad91274d8d9fc30
+logName: projects/phantom-ui-navigator/logs/run.googleapis.com%2Fstderr
+receiveTimestamp: '2026-03-12T21:23:28.580675903Z'
+resource:
+  labels:
+    configuration_name: phantom-ui
+    location: us-central1
+    project_id: phantom-ui-navigator
+    revision_name: phantom-ui-00005-9hn
+    service_name: phantom-ui
+  type: cloud_run_revision
+textPayload: 21:23:28 │ phantom.analyzer     │ INFO    │ 👁️ Analyse du screenshot
+  en cours...
+timestamp: '2026-03-12T21:23:28.575597Z'
+---
+httpRequest:
+  latency: 9.678476636s
+  protocol: HTTP/1.1
+  referer: https://phantom-ui-157502772725.us-central1.run.app/
+  remoteIp: 78.124.104.19
+  requestMethod: GET
+  requestSize: '729'
+  requestUrl: https://phantom-ui-157502772725.us-central1.run.app/api/state
+  responseSize: '2693'
+  serverIp: 34.143.78.2
+  status: 200
+  userAgent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
+    like Gecko) Chrome/145.0.0.0 Safari/537.36
+insertId: 69b32eda00020907013eeb45
+labels:
+  instanceId: 00da6cd2c40c6c683d0fb38de1e4d6bbd26e200d10811b3bed9c9713026ee6f48bcb72e3450c6e17c49c7a6623182b2982ebc4767ca705af0eb00810512f8678f0bf15f6ccfe6f0705882ad91274d8d9fc30
+logName: projects/phantom-ui-navigator/logs/run.googleapis.com%2Frequests
+
+receiveTimestamp: '2026-03-12T21:23:38.320416830Z'
+resource:
+  labels:
+    configuration_name: phantom-ui
+    location: us-central1
+    project_id: phantom-ui-navigator
+    revision_name: phantom-ui-00005-9hn
+    service_name: phantom-ui
+  type: cloud_run_revision
+severity: INFO
+spanId: 350f7f2e0af0c7f3
+timestamp: '2026-03-12T21:23:28.453385Z'
+trace: projects/phantom-ui-navigator/traces/0e22916f3bd4509c4a7375bc6a7ec171
+---
+insertId: 69b32ecf000f212ec5313aad
+labels:
+  instanceId: 00da6cd2c40c6c683d0fb38de1e4d6bbd26e200d10811b3bed9c9713026ee6f48bcb72e3450c6e17c49c7a6623182b2982ebc4767ca705af0eb00810512f8678f0bf15f6ccfe6f0705882ad91274d8d9fc30
+logName: projects/phantom-ui-navigator/logs/run.googleapis.com%2Fstdout
+receiveTimestamp: '2026-03-12T21:23:28.005493583Z'
+resource:
+  labels:
+    configuration_name: phantom-ui
+    location: us-central1
+    project_id: phantom-ui-navigator
+    revision_name: phantom-ui-00005-9hn
+    service_name: phantom-ui
+  type: cloud_run_revision
+textPayload: 'INFO:     169.254.169.126:9666 - "GET /api/screenshot HTTP/1.1" 200
+  OK'
+timestamp: '2026-03-12T21:23:27.991534Z'
+---
+httpRequest:
+  latency: 0.092876331s
+  protocol: HTTP/1.1
+  referer: https://phantom-ui-157502772725.us-central1.run.app/
+  remoteIp: 78.124.104.19
+  requestMethod: GET
+  requestSize: '749'
+  requestUrl: https://phantom-ui-157502772725.us-central1.run.app/api/screenshot
+  responseSize: '330522'
+  serverIp: 34.143.78.2
+  status: 200
+  userAgent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
+    like Gecko) Chrome/145.0.0.0 Safari/537.36
+insertId: 69b32ecf000f24fd1ab6d349
+labels:
+  instanceId: 00da6cd2c40c6c683d0fb38de1e4d6bbd26e200d10811b3bed9c9713026ee6f48bcb72e3450c6e17c49c7a6623182b2982ebc4767ca705af0eb00810512f8678f0bf15f6ccfe6f0705882ad91274d8d9fc30
+logName: projects/phantom-ui-navigator/logs/run.googleapis.com%2Frequests
+receiveTimestamp: '2026-03-12T21:23:27.999718811Z'
+resource:
+  labels:
+    configuration_name: phantom-ui
+    location: us-central1
+    project_id: phantom-ui-navigator
+    revision_name: phantom-ui-00005-9hn
+    service_name: phantom-ui
+  type: cloud_run_revision
+severity: INFO
+spanId: f2c8ebdb6680e264
+timestamp: '2026-03-12T21:23:27.894723Z'
+trace: projects/phantom-ui-navigator/traces/5d2174094983888f4a7375bc6a7ec77e
+traceSampled: true
+---
+insertId: 69b32e9e0008d95eca4ed3e5
+labels:
+  instanceId: 00da6cd2c40c6c683d0fb38de1e4d6bbd26e200d10811b3bed9c9713026ee6f48bcb72e3450c6e17c49c7a6623182b2982ebc4767ca705af0eb00810512f8678f0bf15f6ccfe6f0705882ad91274d8d9fc30
+logName: projects/phantom-ui-navigator/logs/run.googleapis.com%2Fstdout
+receiveTimestamp: '2026-03-12T21:22:38.702435783Z'
+resource:
+  labels:
+    configuration_name: phantom-ui
+    location: us-central1
+    project_id: phantom-ui-navigator
+    revision_name: phantom-ui-00005-9hn
+    service_name: phantom-ui
+  type: cloud_run_revision
+textPayload: 'INFO:     169.254.169.126:27714 - "GET /api/state HTTP/1.1" 200 OK'
+timestamp: '2026-03-12T21:22:38.579934Z'
+
+
+Updates are available for some Google Cloud CLI components.  To install them,
+please run:
+  $ gcloud components update
 
 ---
 

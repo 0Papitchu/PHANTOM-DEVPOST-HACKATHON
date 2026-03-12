@@ -112,3 +112,58 @@ phantom-ui-navigator/
 ## 📜 License
 
 MIT
+
+## 📊 Architecture
+
+```mermaid
+graph TD
+    %% Colors and Styling
+    classDef user fill:#2d3436,stroke:#74b9ff,stroke-width:2px,color:#fff
+    classDef api fill:#0984e3,stroke:#74b9ff,stroke-width:2px,color:#fff
+    classDef agent fill:#6c5ce7,stroke:#a29bfe,stroke-width:2px,color:#fff
+    classDef cloud fill:#00b894,stroke:#55efc4,stroke-width:2px,color:#fff
+    classDef gemini fill:#d63031,stroke:#ff7675,stroke-width:2px,color:#fff
+
+    User((User <br/>Voice/Text)):::user
+    Frontend[Frontend UI <br/>HTML/JS + Web Speech API]:::user
+    
+    subgraph Google Cloud Platform
+        CloudRun[Cloud Run Fast API <br/> WebSocket Server]:::api
+        TTS[Google Cloud TTS]:::cloud
+        Storage[(Cloud Storage <br/> Screenshots)]:::cloud
+        Firestore[(Firestore <br/> Session Data)]:::cloud
+        PubSub{{Pub/Sub Events}}:::cloud
+    end
+
+    subgraph ADK Orchestrator
+        ScreenshotAgent[Screenshot Agent <br/> Playwright / Coordinates]:::agent
+        AnalyzerAgent[Analyzer Agent <br/> Visual UIState Parsing]:::agent
+        ActionAgent[Action Agent <br/> Planner & Executor]:::agent
+    end
+
+    subgraph Google AI
+        GeminiVision[Gemini 2.0 Flash Vision]:::gemini
+        GeminiLive[Gemini Live API]:::gemini
+    end
+
+    %% Connections
+    User <-->|Microphone / Speakers| Frontend
+    Frontend <-->|WebSockets / Real-Time| CloudRun
+    
+    CloudRun -->|Orchestrates| ScreenshotAgent
+    CloudRun -->|Orchestrates| AnalyzerAgent
+    CloudRun -->|Orchestrates| ActionAgent
+    CloudRun -->|Accessibility Audio| TTS
+
+    ScreenshotAgent -->|Captures Screen| Storage
+    Storage -->|Publishes Update| PubSub
+    PubSub -->|Triggers| AnalyzerAgent
+
+    AnalyzerAgent <-->|Sends Image, gets bounding boxes| GeminiVision
+    ActionAgent <-->|Context & Intent| GeminiLive
+
+    AnalyzerAgent -->|Updates UIState| Firestore
+    ActionAgent -->|Reads UIState & Generates Plan| Firestore
+    
+    ActionAgent -->|Executes Plan X/Y Clicks| ScreenshotAgent
+```
