@@ -1111,7 +1111,7 @@
                 <div class="screen-viewport" id="screenViewport">
                     <div class="screen-placeholder" id="placeholder">
                         <div class="icon">👁️</div>
-                        <p>Enter a URL and press START to launch Phantom's vision pipeline</p>
+                        <p>Just tell Phantom what you need — or enter a URL and press START</p>
                     </div>
                     <div class="loading-overlay" id="loadingOverlay" style="display:none">
                         <div class="loading-orb">
@@ -1142,7 +1142,7 @@
                     <div class="log-entry narration">
                         <div class="log-icon">🛸</div>
                         <div class="log-content">
-                            <div class="log-text">Phantom is ready. Enter a URL and start a session.</div>
+                            <div class="log-text">Phantom is ready. Just type what you need — no URL required.</div>
                             <div class="log-time">system</div>
                         </div>
                     </div>
@@ -1152,7 +1152,7 @@
 
                 <div class="command-area">
                     <div class="command-input-wrapper">
-                        <input type="text" id="commandInput" placeholder="Tell Phantom what to do..."
+                        <input type="text" id="commandInput" placeholder="e.g. Find flights from Paris to Dubai..."
                             onkeydown="if(event.key==='Enter') sendCommand()">
                         <button class="mic-btn" id="micBtn" onclick="toggleMic()">🎙️</button>
                         <button class="send-btn" onclick="sendCommand()">➤</button>

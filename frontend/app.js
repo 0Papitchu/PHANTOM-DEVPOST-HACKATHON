@@ -264,6 +264,24 @@ function handleWsMessage(msg) {
         case 'resumed':
             addLog('▶️', 'Execution resumed', 'narration');
             break;
+
+        case 'auto_navigate':
+            // Agent auto-detected the best website
+            const urlInput = document.getElementById('urlInput');
+            if (urlInput) urlInput.value = msg.url;
+            break;
+
+        case 'session_auto_started':
+            // Session was auto-started from a command
+            isSessionActive = true;
+            loadingOverlay.style.display = 'none';
+            startBtn.textContent = '■ STOP';
+            startBtn.disabled = false;
+            startBtn.classList.add('active');
+            setStatus('online', 'LIVE');
+            startScreenshotPolling();
+            addLog('✅', `Connected to ${msg.url} — ${msg.elements} elements detected`, 'success');
+            break;
     }
 }
 
@@ -272,13 +290,42 @@ function handleWsMessage(msg) {
 async function sendCommand() {
     const intent = commandInput.value.trim();
     if (!intent) return;
-    if (!isSessionActive) {
-        addLog('⚠️', 'Start a session first!', 'error');
-        return;
-    }
 
     commandInput.value = '';
     addLog('💬', `You: "${intent}"`, 'narration');
+
+    // If no session, auto-connect WebSocket and let backend handle auto-navigation
+    if (!isSessionActive) {
+        // Show loading animation
+        placeholder.style.display = 'none';
+        loadingOverlay.style.display = 'flex';
+        const loadingText = document.getElementById('loadingText');
+        const substatus = document.getElementById('loadingSubstatus');
+        if (loadingText) loadingText.textContent = 'Phantom is thinking...';
+        if (substatus) substatus.textContent = 'Detecting the best website for your request';
+        const progressBar = document.getElementById('loadingProgressBar');
+        if (progressBar) {
+            progressBar.style.animation = 'none';
+            progressBar.offsetHeight;
+            progressBar.style.animation = 'progress-sweep 12s ease-in-out forwards';
+        }
+        setStatus('offline', 'AUTO-NAVIGATING...');
+
+        // Connect WebSocket if not connected
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+            connectWebSocket();
+            // Wait for connection
+            await new Promise(resolve => {
+                const checkInterval = setInterval(() => {
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        clearInterval(checkInterval);
+                        resolve();
+                    }
+                }, 100);
+                setTimeout(() => { clearInterval(checkInterval); resolve(); }, 5000);
+            });
+        }
+    }
 
     // Send via WebSocket for real-time updates
     if (ws && ws.readyState === WebSocket.OPEN) {

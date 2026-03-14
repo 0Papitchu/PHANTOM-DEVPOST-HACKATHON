@@ -436,11 +436,16 @@ async def websocket_endpoint(ws: WebSocket):
                 case "command":
                     # Commande vocale ou texte
                     intent = message.get("intent", "")
-                    if intent and phantom.is_running:
-                        # Exécuter en arrière-plan
-                        asyncio.create_task(
-                            _handle_ws_command(intent)
-                        )
+                    if intent:
+                        # If no session, auto-start one with smart URL
+                        if not phantom.is_running:
+                            asyncio.create_task(
+                                _auto_navigate_and_execute(intent)
+                            )
+                        else:
+                            asyncio.create_task(
+                                _handle_ws_command(intent)
+                            )
 
                 case "set_accessibility":
                     # Toggle Navigator for All mode
@@ -487,6 +492,86 @@ async def websocket_endpoint(ws: WebSocket):
     except WebSocketDisconnect:
         phantom.connected_clients.remove(ws)
         logger.info(f"🔌 Client déconnecté ({len(phantom.connected_clients)} restants)")
+
+
+async def _auto_navigate_and_execute(intent: str):
+    """Auto-start a session with a smart URL inferred from the user's intent."""
+    try:
+        await broadcast({"type": "narration", "text": "🧠 Let me figure out the best website for that..."})
+
+        # Ask Gemini to infer the best URL
+        url = await _infer_url(intent)
+        if not url:
+            url = "https://www.google.com"
+
+        await broadcast({"type": "narration", "text": f"🌐 Navigating to {url}..."})
+        await broadcast({"type": "auto_navigate", "url": url})
+
+        # Start session programmatically
+        phantom.screenshot_agent = ScreenshotAgent()
+        phantom.analyzer_agent = AnalyzerAgent()
+        phantom.action_agent = ActionAgent()
+        phantom.session_id = str(uuid.uuid4())
+
+        await phantom.screenshot_agent.start_browser(url)
+        screenshot = await phantom.screenshot_agent.take_screenshot()
+        page_url = phantom.screenshot_agent.page.url
+        ui_state = await phantom.analyzer_agent.analyze_screenshot(screenshot)
+        phantom.current_ui_state = ui_state
+        phantom.is_running = True
+
+        import base64 as b64mod
+        encoded = b64mod.b64encode(screenshot).decode("utf-8")
+        await broadcast({
+            "type": "screenshot",
+            "image": f"data:image/png;base64,{encoded}",
+        })
+        await broadcast({"type": "session_auto_started", "url": url, "elements": len(ui_state.elements)})
+
+        # Now execute the command on this page
+        await _handle_ws_command(intent)
+
+    except Exception as e:
+        logger.error(f"❌ Auto-navigate error: {e}")
+        await broadcast({"type": "error", "message": str(e)})
+
+
+async def _infer_url(intent: str) -> Optional[str]:
+    """Ask Gemini to infer the best URL to navigate to based on user intent."""
+    try:
+        from agents.gemini_utils import get_gemini_client
+        client = get_gemini_client()
+
+        prompt = f"""Given this user request: \"{intent}\"
+
+What is the single best URL to navigate to? Return ONLY the URL, nothing else.
+
+Rules:
+- For flights → https://www.google.com/travel/flights
+- For maps/directions/restaurants → https://www.google.com/maps
+- For shopping/products → https://www.google.com/shopping
+- For news/articles/information → https://www.google.com
+- For hotels → https://www.google.com/travel/hotels
+- For weather → https://www.google.com
+- For specific websites mentioned by the user → use that exact URL
+- Default → https://www.google.com
+
+Return ONLY the URL:"""
+
+        response = await asyncio.to_thread(
+            client.models.generate_content,
+            model=settings.gemini_model,
+            contents=prompt,
+        )
+        url = response.text.strip() if response.text else "https://www.google.com"
+        # Clean up — remove markdown or quotes
+        url = url.replace("`", "").replace('"', '').replace("'", "").strip()
+        if not url.startswith("http"):
+            url = "https://www.google.com"
+        return url
+    except Exception as e:
+        logger.error(f"❌ URL inference error: {e}")
+        return "https://www.google.com"
 
 
 async def _handle_ws_command(intent: str):
