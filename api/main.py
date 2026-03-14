@@ -597,12 +597,41 @@ Return ONLY the URL:"""
 async def _handle_ws_command(intent: str):
     """Gère une commande reçue par WebSocket — mode agent conversationnel."""
     try:
-        # Natural opening — the agent acknowledges the request
-        await broadcast({
-            "type": "narration",
-            "text": f"🧠 Let me understand the page and figure out how to do that..."
-        })
+        import base64
 
+        # ── Step 0: Detect if we need to navigate to a different site ──
+        # Compare current URL domain with the inferred URL for this intent
+        current_url = phantom.screenshot_agent.page.url if phantom.screenshot_agent else ""
+        inferred_url = await _infer_url(intent) or "https://www.google.com"
+
+        # Parse domains for comparison
+        from urllib.parse import urlparse
+        current_domain = urlparse(current_url).netloc.replace("www.", "")
+        inferred_domain = urlparse(inferred_url).netloc.replace("www.", "")
+        # Also check path-level changes (e.g. /travel/flights vs /travel/hotels)
+        current_path = urlparse(current_url).path.rstrip("/")
+        inferred_path = urlparse(inferred_url).path.rstrip("/")
+
+        needs_navigation = (
+            current_domain != inferred_domain
+            or (current_domain == inferred_domain and current_path != inferred_path and inferred_path != "")
+        )
+
+        if needs_navigation:
+            await broadcast({
+                "type": "narration",
+                "text": f"Got it. Let me navigate to the right page for that..."
+            })
+            await phantom.screenshot_agent.page.goto(inferred_url, wait_until="domcontentloaded", timeout=15000)
+            await asyncio.sleep(2)  # Let the page render
+            await broadcast({"type": "auto_navigate", "url": inferred_url})
+        else:
+            await broadcast({
+                "type": "narration",
+                "text": f"Got it. Let me handle that for you."
+            })
+
+        # ── Step 1: Capture & analyze current page ──
         screenshot = await phantom.screenshot_agent.page.screenshot(type="png")
         ui_state = await phantom.analyzer_agent.analyze_screenshot(screenshot)
 
@@ -612,14 +641,20 @@ async def _handle_ws_command(intent: str):
             "elements_count": len(ui_state.elements),
         })
 
-        # Generate plan silently — no robotic step listing
+        # Broadcast updated screenshot
+        b64 = base64.b64encode(screenshot).decode("utf-8")
+        await broadcast({
+            "type": "screenshot",
+            "image": f"data:image/png;base64,{b64}",
+        })
+
+        # ── Step 2: Generate & execute action plan ──
         plan = await phantom.action_agent.generate_plan(intent, ui_state)
 
-        # Send a natural description of what the agent will do
         if plan.steps:
             await broadcast({
                 "type": "narration",
-                "text": f"👁️ I can see {len(ui_state.elements)} interactive elements. Working on it..."
+                "text": f"I can see {len(ui_state.elements)} interactive elements. Working on it..."
             })
 
             async def narrate(text):
@@ -631,54 +666,51 @@ async def _handle_ws_command(intent: str):
                 await broadcast(payload)
 
             phantom.action_agent.set_narration_callback(narrate)
-
-            # Execute silently — the agent just acts
             results = await phantom.action_agent.execute_plan(plan, ui_state)
+        else:
+            results = []
 
-            # === THE KEY FEATURE: Post-execution result analysis ===
-            # Take a fresh screenshot of the result page and ask Gemini
-            # to read and summarize what's visible, like a human would
-            final_screenshot = await phantom.screenshot_agent.page.screenshot(type="png")
-            final_b64 = base64.b64encode(final_screenshot).decode("utf-8")
+        # ── Step 3: Post-execution analysis (ALWAYS runs) ──
+        final_screenshot = await phantom.screenshot_agent.page.screenshot(type="png")
+        final_b64 = base64.b64encode(final_screenshot).decode("utf-8")
 
-            # Send the updated screenshot
-            await broadcast({
-                "type": "screenshot",
-                "image": f"data:image/png;base64,{final_b64}",
-            })
+        await broadcast({
+            "type": "screenshot",
+            "image": f"data:image/png;base64,{final_b64}",
+        })
 
-            # Ask Gemini to summarize the results AND generate interactive options
-            summary_data = await _summarize_results(final_screenshot, intent)
-            if summary_data:
-                summary_text = summary_data.get("text", "") if isinstance(summary_data, dict) else str(summary_data)
-                summary_options = summary_data.get("options", []) if isinstance(summary_data, dict) else []
-                payload = {
-                    "type": "result_summary",
-                    "text": summary_text,
-                    "options": summary_options,
-                }
-                if phantom.accessibility_mode:
-                    audio_b64 = await generate_tts_audio(summary_text)
-                    if audio_b64:
-                        payload["audio"] = audio_b64
-                await broadcast(payload)
+        # Ask Gemini to summarize AND generate interactive options — ALWAYS
+        summary_data = await _summarize_results(final_screenshot, intent)
+        if summary_data:
+            summary_text = summary_data.get("text", "") if isinstance(summary_data, dict) else str(summary_data)
+            summary_options = summary_data.get("options", []) if isinstance(summary_data, dict) else []
+            payload = {
+                "type": "result_summary",
+                "text": summary_text,
+                "options": summary_options,
+            }
+            if phantom.accessibility_mode:
+                audio_b64 = await generate_tts_audio(summary_text)
+                if audio_b64:
+                    payload["audio"] = audio_b64
+            await broadcast(payload)
 
-            # Broadcast current URL to update the URL bar
-            try:
-                current_url = phantom.screenshot_agent.page.url
-                await broadcast({"type": "auto_navigate", "url": current_url})
-            except Exception:
-                pass
+        # Broadcast current URL to update the URL bar
+        try:
+            current_url = phantom.screenshot_agent.page.url
+            await broadcast({"type": "auto_navigate", "url": current_url})
+        except Exception:
+            pass
 
-            # Update UI state
-            final_state = await phantom.analyzer_agent.analyze_screenshot(final_screenshot)
-            phantom.current_ui_state = final_state
+        # Update UI state
+        final_state = await phantom.analyzer_agent.analyze_screenshot(final_screenshot)
+        phantom.current_ui_state = final_state
 
-            await broadcast({
-                "type": "execution_complete",
-                "success": all(r.success for r in results),
-                "steps_completed": sum(1 for r in results if r.success),
-            })
+        await broadcast({
+            "type": "execution_complete",
+            "success": all(r.success for r in results) if results else True,
+            "steps_completed": sum(1 for r in results if r.success) if results else 0,
+        })
 
     except Exception as e:
         logger.error(f"❌ Erreur commande WS : {e}")
