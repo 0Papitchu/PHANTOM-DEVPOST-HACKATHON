@@ -102,12 +102,16 @@ async function startSession() {
 
         // Update UI
         setStatus('online', 'LIVE');
-        startBtn.textContent = '⏹ STOP';
+        const startIcon = document.getElementById('startIcon');
+        const startText = document.getElementById('startText');
+        if (startIcon) startIcon.textContent = '⏹';
+        if (startText) startText.textContent = 'STOP';
         startBtn.onclick = stopSession;
-        startBtn.classList.add('active');
+        startBtn.classList.remove('text-slate-600', 'bg-white', 'border-slate-200');
+        startBtn.classList.add('text-red-600', 'bg-red-50', 'border-red-200');
 
-        addLog('✅', `Session started — ${data.elements_found} elements detected`, 'success');
-        addLog('👁️', `Page context: ${data.page_context}`, 'narration');
+        addLog('✅', `Session started — ${data.elements_found} elements detected`, 'system');
+        addLog('👁️', `Page context: ${data.page_context}`, 'agent');
 
         // Update elements
         if (data.ui_state && data.ui_state.elements) {
@@ -137,9 +141,13 @@ async function stopSession() {
 
     isSessionActive = false;
     setStatus('offline', 'OFFLINE');
-    startBtn.textContent = '▶ START';
+    const startIcon = document.getElementById('startIcon');
+    const startText = document.getElementById('startText');
+    if (startIcon) startIcon.textContent = '▶';
+    if (startText) startText.textContent = 'START';
     startBtn.onclick = startSession;
-    startBtn.classList.remove('active');
+    startBtn.classList.remove('text-red-600', 'bg-red-50', 'border-red-200');
+    startBtn.classList.add('text-slate-600', 'bg-white', 'border-slate-200');
     startBtn.disabled = false;
 
     // Clear screenshot
@@ -215,8 +223,7 @@ function handleWsMessage(msg) {
             break;
 
         case 'result_summary':
-            // The key feature — conversational result presentation
-            addLog('💬', msg.text, 'result');
+            addLog('💬', msg.text, 'agent', msg.options);
             if (msg.audio) {
                 try {
                     const audio = new Audio("data:audio/mp3;base64," + msg.audio);
@@ -230,7 +237,6 @@ function handleWsMessage(msg) {
             break;
 
         case 'plan_generated':
-            // Simplified — no step-by-step listing, just a natural summary
             addLog('🧠', `Working on: "${msg.intent}"`, 'action');
             break;
 
@@ -268,22 +274,27 @@ function handleWsMessage(msg) {
             break;
 
         case 'auto_navigate':
-            // Agent auto-detected the best website
             const urlInput = document.getElementById('urlInput');
             if (urlInput) urlInput.value = msg.url;
             break;
 
         case 'session_auto_started':
-            // Session was auto-started from a command
             isSessionActive = true;
             loadingOverlay.style.display = 'none';
-            startBtn.textContent = '⏹ STOP';
+            const startIcon = document.getElementById('startIcon');
+            const startText = document.getElementById('startText');
+            if (startIcon) startIcon.textContent = '⏹';
+            if (startText) startText.textContent = 'STOP';
             startBtn.onclick = stopSession;
-            startBtn.classList.add('active');
+            startBtn.classList.remove('text-slate-600', 'bg-white', 'border-slate-200');
+            startBtn.classList.add('text-red-600', 'bg-red-50', 'border-red-200');
             startBtn.disabled = false;
             setStatus('online', 'LIVE');
             startScreenshotPolling();
-            addLog('✅', `Connected to ${msg.url} — ${msg.elements} elements detected`, 'success');
+            addLog('✅', `Connected to ${msg.url} — ${msg.elements} elements detected`, 'system');
+            if (msg.options) {
+                addLog('✨', 'Here are your options:', 'agent', msg.options);
+            }
             break;
     }
 }
@@ -295,7 +306,7 @@ async function sendCommand() {
     if (!intent) return;
 
     commandInput.value = '';
-    addLog('💬', `You: "${intent}"`, 'narration');
+    addLog('👤', intent, 'user');
 
     // If no session, auto-connect WebSocket and let backend handle auto-navigation
     if (!isSessionActive) {
@@ -460,30 +471,46 @@ function getElementClass(type) {
 }
 
 function renderElementsList(elements) {
+    const tabCount = document.getElementById('elementsTabCount');
+    if (tabCount) {
+        tabCount.textContent = elements.length;
+        tabCount.classList.remove('hidden');
+    }
+
     elementsList.innerHTML = '';
     elements.forEach((el, i) => {
         const item = document.createElement('div');
-        item.className = 'element-item';
-        // Stagger slide-in
-        item.style.animationDelay = `${i * 60}ms`;
+        item.className = 'flex items-center justify-between p-3 bg-white border border-slate-200 rounded-lg shadow-sm animate-slide-up hover:border-bahama-blue-300 transition-colors';
+        item.style.animationDelay = `${i * 30}ms`;
+
+        const leftCol = document.createElement('div');
+        leftCol.className = 'flex flex-col gap-1.5 overflow-hidden pr-2';
 
         const badge = document.createElement('span');
-        badge.className = `element-type-badge ${getElementClass(el.element_type) || 'other'}`;
+        const typeClass = getElementClass(el.element_type);
+        let badgeColor = 'bg-slate-100 text-slate-600 border-slate-200';
+        if(typeClass === 'button') badgeColor = 'bg-purple-50 text-purple-700 border-purple-100';
+        if(typeClass === 'input')  badgeColor = 'bg-green-50 text-green-700 border-green-100';
+        if(typeClass === 'link')   badgeColor = 'bg-orange-50 text-orange-700 border-orange-100';
+        
+        badge.className = `text-[9px] font-mono shadow-sm font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border w-max ${badgeColor}`;
         badge.textContent = el.element_type;
 
         const labelSpan = document.createElement('span');
-        labelSpan.className = 'element-label';
-        labelSpan.textContent = el.label;
+        labelSpan.className = 'text-sm font-medium text-slate-700 truncate';
+        labelSpan.textContent = el.label || '<no label>';
 
-        const confidence = document.createElement('span');
-        confidence.className = 'element-confidence';
-        // Animate counter from 0 to target
+        leftCol.appendChild(badge);
+        leftCol.appendChild(labelSpan);
+
+        const confidence = document.createElement('div');
+        confidence.className = 'text-xs font-mono font-bold text-bahama-blue-600 bg-bahama-blue-50 border border-bahama-blue-100 shadow-sm px-2 py-1 rounded-md ml-2 flex-shrink-0';
+        
         const targetVal = Math.round((el.confidence || 0) * 100);
         confidence.textContent = '0%';
-        animateCounter(confidence, 0, targetVal, 400 + i * 60);
+        animateCounter(confidence, 0, targetVal, 100 + i * 30);
 
-        item.appendChild(badge);
-        item.appendChild(labelSpan);
+        item.appendChild(leftCol);
         item.appendChild(confidence);
         elementsList.appendChild(item);
     });
@@ -573,21 +600,17 @@ function toggleMic() {
 
 function startRecording() {
     if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
-        addLog('⚠️', 'Speech recognition not supported in this browser', 'error');
+        addLog('⚠️', 'Speech recognition not supported in this browser', 'system');
         return;
     }
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     recognition = new SpeechRecognition();
-    recognition.lang = 'fr-FR,en-US'; // Multilingual — French + English
-    recognition.continuous = true;    // DON'T stop on silence
+    recognition.lang = 'fr-FR,en-US'; 
+    recognition.continuous = true;    
     recognition.interimResults = true;
 
-    let silenceTimer = null;
-    let lastTranscript = '';
-
     recognition.onresult = (event) => {
-        // Build full transcript from all results
         let transcript = '';
         for (let i = 0; i < event.results.length; i++) {
             transcript += event.results[i][0].transcript;
@@ -601,7 +624,7 @@ function startRecording() {
     };
 
     recognition.onerror = (event) => {
-        addLog('⚠️', `Mic error: ${event.error}`, 'error');
+        addLog('⚠️', `Mic error: ${event.error}`, 'system');
         stopRecording();
     };
 
@@ -611,9 +634,17 @@ function startRecording() {
 
     recognition.start();
     isRecording = true;
-    micBtn.classList.add('recording');
-    micBtn.textContent = '⏹';
-    addLog('🎙️', 'Listening...', 'narration');
+    
+    micBtn.classList.remove('bg-white', 'text-slate-400', 'border-slate-200');
+    micBtn.classList.add('bg-bahama-blue-600', 'text-white', 'border-bahama-blue-600', 'shadow-md');
+    micBtn.innerHTML = '<svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" /></svg>';
+    
+    document.getElementById('micPulse1').classList.remove('hidden');
+    document.getElementById('micPulse1').classList.add('animate-radar');
+    document.getElementById('micPulse2').classList.remove('hidden');
+    document.getElementById('micPulse2').classList.add('animate-radar');
+    
+    addLog('🎙️', 'Voice input active - Listening...', 'system');
 }
 
 function stopRecording() {
@@ -622,8 +653,15 @@ function stopRecording() {
         recognition = null;
     }
     isRecording = false;
-    micBtn.classList.remove('recording');
-    micBtn.textContent = '🎙️';
+    
+    micBtn.classList.add('bg-white', 'text-slate-400', 'border-slate-200');
+    micBtn.classList.remove('bg-bahama-blue-600', 'text-white', 'border-bahama-blue-600', 'shadow-md');
+    micBtn.innerHTML = '<svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>';
+    
+    document.getElementById('micPulse1').classList.add('hidden');
+    document.getElementById('micPulse1').classList.remove('animate-radar');
+    document.getElementById('micPulse2').classList.add('hidden');
+    document.getElementById('micPulse2').classList.remove('animate-radar');
 }
 
 // ── Accessibility ───────────────────────────────────────────
@@ -657,31 +695,94 @@ function speak(text) {
 
 // ── Activity Log ────────────────────────────────────────────
 
-function addLog(icon, text, type = 'narration') {
+function addLog(icon, text, type = 'narration', options = null) {
     const entry = document.createElement('div');
-    entry.className = `log-entry ${type}`;
+    entry.className = 'w-full animate-slide-up flex flex-col gap-1';
 
     const now = new Date().toLocaleTimeString('en-US', {
-        hour12: false,
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
+        hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit'
     });
 
+    let headerClass = '';
+    let textClass = '';
+    let label = '';
+
+    if (type === 'user' || type === 'command') {
+        headerClass = 'bg-slate-100 text-slate-600 border-slate-200';
+        textClass = 'text-slate-800 font-medium text-base';
+        label = 'You';
+    } else if (type === 'narration' || type === 'result' || type === 'agent') {
+        headerClass = 'bg-bahama-blue-50 text-bahama-blue-700 border-bahama-blue-100';
+        textClass = 'text-slate-700 text-sm';
+        label = 'Phantom';
+    } else if (type === 'action') {
+        headerClass = 'bg-emerald-50 text-emerald-700 border-emerald-100';
+        textClass = 'font-mono text-xs text-emerald-700 leading-relaxed';
+        label = 'Action';
+    } else {
+        // system, error, success
+        headerClass = 'bg-slate-50 text-slate-500 border-slate-100';
+        textClass = 'font-mono text-[11px] text-slate-500';
+        label = 'System';
+    }
+
     entry.innerHTML = `
-        <div class="log-icon">${icon}</div>
-        <div class="log-content">
-            <div class="log-text">${escapeHtml(text)}</div>
-            <div class="log-time">${now}</div>
+        <div class="flex items-center justify-between mb-1 mt-3">
+            <span class="text-[10px] uppercase tracking-wider font-bold ${headerClass} border rounded px-1.5 py-0.5 font-mono flex items-center gap-1">${icon} ${label}</span>
+            <span class="text-[10px] text-slate-400 font-mono">${now}</span>
         </div>
+        <div class="${textClass}">${escapeHtml(text)}</div>
     `;
 
+    // Add Interactive Options cards if provided
+    if (options && Array.isArray(options) && options.length > 0) {
+        const optionsContainer = document.createElement('div');
+        optionsContainer.className = 'flex flex-col gap-2 mt-3';
+        
+        options.forEach(opt => {
+            const btn = document.createElement('button');
+            btn.className = 'group flex items-center justify-between w-full text-left bg-white border border-slate-200 rounded-xl p-3.5 hover:border-bahama-blue-400 hover:shadow-md transition-all hover:-translate-y-[1px]';
+            btn.onclick = () => handleOptionClick(opt);
+            
+            btn.innerHTML = `
+                <div class="flex flex-col">
+                    <span class="font-bold text-slate-800 text-sm">${escapeHtml(opt.title || opt)}</span>
+                    ${opt.subtitle ? `<span class="text-xs text-slate-500 mt-0.5">${escapeHtml(opt.subtitle)}</span>` : ''}
+                </div>
+                <div class="opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all text-bahama-blue-500 flex-shrink-0 ml-2">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+                </div>
+            `;
+            optionsContainer.appendChild(btn);
+        });
+        
+        entry.appendChild(optionsContainer);
+    }
+
     activityLog.appendChild(entry);
-    activityLog.scrollTop = activityLog.scrollHeight;
+    
+    setTimeout(() => {
+        document.getElementById('logsEndRef').scrollIntoView({ behavior: 'smooth' });
+    }, 50);
 
     // Keep max 100 entries
     while (activityLog.children.length > 100) {
-        activityLog.removeChild(activityLog.firstChild);
+        activityLog.firstElementChild.remove();
+    }
+}
+
+function handleOptionClick(opt) {
+    const choiceText = opt.title || opt;
+    addLog('👤', choiceText, 'user');
+    
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'command', intent: choiceText }));
+    } else {
+        fetch(`${API_BASE}/api/command`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ intent: choiceText, auto_execute: true }),
+        }).catch(err => addLog('❌', `Error: ${err.message}`, 'system'));
     }
 }
 

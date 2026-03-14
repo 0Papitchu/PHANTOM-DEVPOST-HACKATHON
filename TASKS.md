@@ -6,6 +6,8 @@ _Aucune tâche en cours._
 
 ## TERMINÉ
 
+[ANTIGRAVITY] [2026-03-14] — UI Split-Screen Overhaul (Tailwind CSS, Animations, Log types, Interactive Cards, Pulse Mic) — fichiers touchés : frontend/index.html, frontend/app.js
+
 [ANTIGRAVITY] [2026-03-14] — Agent conversationnel + Smart auto-navigation + Result summarizer — fichiers : agents/action_agent.py, api/main.py, frontend/app.js, frontend/index.html
 
 [ANTIGRAVITY] [2026-03-06] — Browser verification des fixes techniques — fichiers touchés : agents/*.py, api/main.py

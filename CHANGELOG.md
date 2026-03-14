@@ -1,5 +1,14 @@
 # CHANGELOG — Phantom UI Navigator
 
+## [v0.7.0] — 2026-03-14 — ANTIGRAVITY
+
+### Ajouté
+- **UI Split-Screen Overhaul** — Refonte complète de l'interface en utilisant Tailwind CSS (via CDN) pour un rendu "Premium SaaS / AI". L'interface est désormais divisée en deux paires : un Viewport à gauche (flex-1) et un Command Center à droite (450px fixes).
+- **Log Types Stricts & Animations** — Implémentation de 4 types de logs stricts (`user`, `agent`, `action`, `system`) avec des badges et typographies spécifiques. Ajout d'animations CSS fluides (`animate-slide-up`) imitant Framer Motion.
+- **Interactive Options Cards** — Support de l'affichage de "cartes interactives" quand l'agent propose des options (avec hover states et boutons). La méthode `handleOptionClick()` renvoie le choix à l'agent en natif.
+- **Pulsing Mic Radar** — Ajout d'une animation radar concentrique gérée par CSS lors de l'enregistrement vocal (activation du micro).
+- **Custom Scrollbars & Design System** — Palette de couleurs adoucies (`slate-50`, `slate-900`) et accetuation via `bahama-blue`.
+
 ## [v0.6.0] — 2026-03-14 — ANTIGRAVITY
 
 ### Ajouté
