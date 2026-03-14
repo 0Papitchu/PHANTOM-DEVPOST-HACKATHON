@@ -32,6 +32,7 @@ const loadingOverlay = document.getElementById('loadingOverlay');
 const loadingText = document.getElementById('loadingText');
 const scanLine = document.getElementById('scanLine');
 const elementCountBadge = document.getElementById('elementCount');
+// stopBtn is now the same as startBtn (toggle pattern)
 
 // ── Session Management ──────────────────────────────────────
 
@@ -101,8 +102,9 @@ async function startSession() {
 
         // Update UI
         setStatus('online', 'LIVE');
-        startBtn.style.display = 'none';
-        stopBtn.style.display = 'flex';
+        startBtn.textContent = '⏹ STOP';
+        startBtn.onclick = stopSession;
+        startBtn.classList.add('active');
 
         addLog('✅', `Session started — ${data.elements_found} elements detected`, 'success');
         addLog('👁️', `Page context: ${data.page_context}`, 'narration');
@@ -135,10 +137,10 @@ async function stopSession() {
 
     isSessionActive = false;
     setStatus('offline', 'OFFLINE');
-    startBtn.style.display = 'flex';
-    startBtn.disabled = false;
     startBtn.textContent = '▶ START';
-    stopBtn.style.display = 'none';
+    startBtn.onclick = startSession;
+    startBtn.classList.remove('active');
+    startBtn.disabled = false;
 
     // Clear screenshot
     screenshotImg.style.display = 'none';
@@ -275,9 +277,10 @@ function handleWsMessage(msg) {
             // Session was auto-started from a command
             isSessionActive = true;
             loadingOverlay.style.display = 'none';
-            startBtn.textContent = '■ STOP';
-            startBtn.disabled = false;
+            startBtn.textContent = '⏹ STOP';
+            startBtn.onclick = stopSession;
             startBtn.classList.add('active');
+            startBtn.disabled = false;
             setStatus('online', 'LIVE');
             startScreenshotPolling();
             addLog('✅', `Connected to ${msg.url} — ${msg.elements} elements detected`, 'success');
@@ -576,15 +579,19 @@ function startRecording() {
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     recognition = new SpeechRecognition();
-    recognition.lang = 'en-US';
-    recognition.continuous = false;
+    recognition.lang = 'fr-FR,en-US'; // Multilingual — French + English
+    recognition.continuous = true;    // DON'T stop on silence
     recognition.interimResults = true;
 
-    recognition.onresult = (event) => {
-        const transcript = Array.from(event.results)
-            .map(r => r[0].transcript)
-            .join('');
+    let silenceTimer = null;
+    let lastTranscript = '';
 
+    recognition.onresult = (event) => {
+        // Build full transcript from all results
+        let transcript = '';
+        for (let i = 0; i < event.results.length; i++) {
+            transcript += event.results[i][0].transcript;
+        }
         commandInput.value = transcript;
 
         if (event.results[0].isFinal) {

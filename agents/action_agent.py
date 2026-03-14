@@ -75,34 +75,67 @@ class StepResult:
 
 # ── Action Agent ─────────────────────────────────────────────
 
-PLANNER_PROMPT = """You are PHANTOM's Planner. You must generate a precise action plan.
+PLANNER_PROMPT = """You are PHANTOM's Action Planner. Analyze the current UI and generate a precise action plan.
 
-Given:
-- USER INTENT: {intent}
-- CURRENT UI STATE: {ui_state}
+USER INTENT: {intent}
+CURRENT UI STATE: {ui_state}
 
 Generate a JSON array of action steps. Each step:
 {{
     "action_type": "click|type|scroll_up|scroll_down|wait|hover|key_press|double_click|right_click|select",
-    "target_description": "exact label or description of the UI element to interact with",
-    "value": "text to type, key to press, or null for clicks",
+    "target_description": "EXACT text label of the UI element as it appears on screen",
+    "value": "text to type, key name, or null",
     "expected_result": "what should change after this action",
-    "fallback": "what to do if expected result is not seen",
+    "fallback": "what to try if this fails",
     "risk_level": "low|medium|high",
     "requires_confirmation": false
 }}
 
-CRITICAL RULES:
-- After ANY click that opens a new panel, page, or dialog, add a "wait" step with value "2" to let the new UI load
-- For search fields: type the text THEN add a key_press Enter step to submit
-- Be PRECISE with target_description — match the exact label visible on screen
-- If typing into a field, the target_description should match the placeholder text or label of the input
-- For Google Maps directions: click Directions button, wait, then type in the start/destination fields, then press Enter
-- Set requires_confirmation=true for destructive actions (delete, submit payment, send)
-- Each step should be ONE atomic action
-- risk_level "high" for anything irreversible
-- Return ONLY valid JSON array, no markdown
+CRITICAL RULES FOR REAL SITES:
+
+1. GOOGLE FLIGHTS — Flight search form:
+   - Click the "Where from?" field (or "Origin" input)
+   - Wait 0.5s for it to focus  
+   - Type the departure city/airport (e.g. "Paris CDG")
+   - Wait 1s for autocomplete dropdown to appear
+   - Press "ArrowDown" then "Enter" to select the first suggestion OR click the first suggestion
+   - Then click "Where to?" field
+   - Type destination city (e.g. "Dubai")
+   - Wait 1s, then ArrowDown + Enter to select suggestion
+   - Click the Departure date field
+   - Type or click the date (format: e.g. "March 14")
+   - Click "Search" button
+
+2. GOOGLE MAPS — Directions:
+   - Click the "Directions" button first
+   - Wait 1s
+   - Click "Choose starting point" or the first route input  
+   - Type the origin
+   - Press Enter
+   - Click "Choose destination" or second route input
+   - Type the destination
+   - Press Enter
+
+3. SEARCH FIELDS (Google, news sites):
+   - Click the search box
+   - Type the query
+   - Press Enter to submit
+
+4. ARTICLE/NEWS SITES:
+   - After search results appear, click on the most relevant result link
+   - Wait 2s for the article to load
+
+5. GENERAL RULES:
+   - After ANY click that opens a new panel/page/dialog: add wait step with value "2"
+   - target_description MUST match the exact visible text in the UI state provided
+   - For text fields: click first to focus, then type
+   - For autocomplete: always add ArrowDown + Enter after typing to confirm the suggestion
+   - Each step = ONE atomic action
+   - Set requires_confirmation=true only for destructive actions (payment, delete, send)
+
+Return ONLY a valid JSON array, no markdown, no explanation.
 """
+
 
 
 class ActionAgent:

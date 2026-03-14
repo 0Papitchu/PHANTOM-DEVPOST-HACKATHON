@@ -344,31 +344,61 @@ class AnalyzerAgent:
         self, ui_state: UIState, label: str
     ) -> Optional[UIElement]:
         """
-        Trouve un élément par son label (recherche fuzzy).
+        Trouve un élément par son label — matching multi-stratégie.
+        Stratégies : exact > substring > word-overlap > best-effort.
         Utilisé par l'Action Agent pour localiser les cibles.
         """
-        label_lower = label.lower()
+        label_lower = label.lower().strip()
+        label_words = set(label_lower.split())
         best_match = None
         best_score = 0.0
 
         for el in ui_state.elements:
-            el_label_lower = el.label.lower()
-            # Match exact
+            el_label_lower = el.label.lower().strip()
+            el_words = set(el_label_lower.split())
+
+            # 1. Match exact
             if el_label_lower == label_lower:
                 return el
-            # Match partiel
-            if label_lower in el_label_lower or el_label_lower in label_lower:
-                score = len(label_lower) / max(len(el_label_lower), 1)
+
+            # 2. Substring match (either direction)
+            if label_lower in el_label_lower:
+                score = len(label_lower) / max(len(el_label_lower), 1) + 0.5
                 if score > best_score:
                     best_score = score
                     best_match = el
+                continue
+            if el_label_lower in label_lower:
+                score = len(el_label_lower) / max(len(label_lower), 1) + 0.3
+                if score > best_score:
+                    best_score = score
+                    best_match = el
+                continue
 
-        if best_match and best_score > 0.3:
+            # 3. Word-level overlap scoring
+            if label_words and el_words:
+                overlap = len(label_words & el_words)
+                if overlap > 0:
+                    score = overlap / max(len(label_words), len(el_words))
+                    if score > best_score:
+                        best_score = score
+                        best_match = el
+
+        if best_match and best_score > 0.2:
             logger.info(
                 f"🎯 Élément trouvé : '{best_match.label}' "
                 f"(score={best_score:.2f}) @ ({best_match.center_x}, {best_match.center_y})"
             )
             return best_match
 
-        logger.warning(f"⚠️ Élément '{label}' non trouvé dans l'UI")
+        # 4. Best-effort fallback — return the highest scoring match regardless of threshold
+        if best_match:
+            logger.warning(
+                f"⚠️ Fallback match pour '{label}' → '{best_match.label}' "
+                f"(score={best_score:.2f}) — match de fortune"
+            )
+            return best_match
+
+        logger.warning(f"⚠️ Élément '{label}' non trouvé dans l'UI ({len(ui_state.elements)} éléments)")
         return None
+
