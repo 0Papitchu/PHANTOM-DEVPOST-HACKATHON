@@ -1,6 +1,6 @@
 # 🛸 PHANTOM UI Navigator
 
-**🌟 Live Demo: [https://phantom-ui-mqwge2lklq-uc.a.run.app](https://phantom-ui-mqwge2lklq-uc.a.run.app)**
+**🌟 Live Demo: [https://phantom-ui-navigator-mqwge2lklq-uc.a.run.app](https://phantom-ui-navigator-mqwge2lklq-uc.a.run.app)**
 
 Phantom navigates any legacy UI by pure vision and voice. No DOM access. No source code. No API.
 Just eyes, voice, and surgical precision.
