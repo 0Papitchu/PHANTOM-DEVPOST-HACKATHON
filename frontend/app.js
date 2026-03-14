@@ -270,8 +270,8 @@ async function sendCommand() {
 function startScreenshotPolling() {
     // Initial screenshot
     refreshScreenshot();
-    // Poll every 3 seconds
-    screenshotInterval = setInterval(refreshScreenshot, 3000);
+    // Poll every 5 seconds (screenshot only — no Gemini API call)
+    screenshotInterval = setInterval(refreshScreenshot, 5000);
 }
 
 async function refreshScreenshot() {
@@ -282,15 +282,9 @@ async function refreshScreenshot() {
         if (!res.ok) return;
         const data = await res.json();
         displayScreenshot(data.image);
-
-        // Also refresh state for overlay
-        const stateRes = await fetch(`${API_BASE}/api/state`);
-        if (stateRes.ok) {
-            const stateData = await stateRes.json();
-            if (stateData.ui_state && stateData.ui_state.elements) {
-                updateElements(stateData.ui_state.elements);
-            }
-        }
+        // NOTE: Do NOT call /api/state here — it triggers a full Gemini Vision
+        // analysis every poll cycle, causing 429 RESOURCE_EXHAUSTED errors.
+        // Elements are updated by command execution flow instead.
     } catch (e) {
         // Silently fail — polling will retry
     }

@@ -92,11 +92,14 @@ Generate a JSON array of action steps. Each step:
     "requires_confirmation": false
 }}
 
-RULES:
+CRITICAL RULES:
+- After ANY click that opens a new panel, page, or dialog, add a "wait" step with value "2" to let the new UI load
+- For search fields: type the text THEN add a key_press Enter step to submit
 - Be PRECISE with target_description — match the exact label visible on screen
-- Set requires_confirmation=true for destructive actions (delete, submit, send)
+- If typing into a field, the target_description should match the placeholder text or label of the input
+- For Google Maps directions: click Directions button, wait, then type in the start/destination fields, then press Enter
+- Set requires_confirmation=true for destructive actions (delete, submit payment, send)
 - Each step should be ONE atomic action
-- Include wait steps if a page load is expected
 - risk_level "high" for anything irreversible
 - Return ONLY valid JSON array, no markdown
 """
@@ -254,11 +257,14 @@ class ActionAgent:
                     ui_state, step.target_description
                 )
                 if not target_element:
-                    # Re-analyse si élément non trouvé
+                    # Re-analyse si élément non trouvé — attend 2s pour
+                    # permettre aux pages dynamiques (ex: Google Maps)
+                    # de charger leurs nouveaux éléments UI
                     logger.warning(
                         f"⚠️ Élément '{step.target_description}' non trouvé — "
-                        f"re-analyse en cours..."
+                        f"attente 2s + re-analyse en cours..."
                     )
+                    await asyncio.sleep(2.0)
                     screenshot = await self.page.screenshot(type="png")
                     ui_state = await self.analyzer.analyze_screenshot(screenshot)
                     target_element = self.analyzer.find_element_by_label(
@@ -277,24 +283,37 @@ class ActionAgent:
             action_desc = await self._perform_action(step, target_element)
 
             # 3. Attendre que l'UI réagisse
-            await asyncio.sleep(0.5)
+            # Clicks qui changent la page → attente longue + re-scan
+            # Type/scroll/key_press → attente courte, pas de re-scan
+            is_page_changing = step.action_type in ("click", "double_click", "select")
 
-            # Optimisation: Ne pas refaire d'analyse visuelle complète après chaque étape intermédiaire
-            # Cela réduit considérablement la latence et évite l'erreur 429 RESOURCE_EXHAUSTED
-            # Le plan a déjà été généré avec les coordonnées initiales.
-            # L'API `execute_command` fera une analyse finale à la fin du plan.
-
-            # 5. Narration du résultat immédiat
-            narration = f"J'ai effectué {step.action_type} sur '{step.target_description}'."
-
-            return StepResult(
-                step_index=step_index,
-                success=True,
-                action_performed=action_desc,
-                ui_changes=[], # Skipped for speed
-                new_state=ui_state, # Keep previous state to avoid redundant API calls
-                narration=narration,
-            )
+            if is_page_changing:
+                # Les clics ouvrent souvent de nouveaux panneaux/pages
+                # Il faut attendre que le contenu se charge avant la prochaine étape
+                await asyncio.sleep(2.0)
+                screenshot = await self.page.screenshot(type="png")
+                new_state = await self.analyzer.analyze_screenshot(screenshot)
+                narration = f"J'ai cliqué sur '{step.target_description}'. {len(new_state.elements)} éléments détectés."
+                return StepResult(
+                    step_index=step_index,
+                    success=True,
+                    action_performed=action_desc,
+                    ui_changes=[],
+                    new_state=new_state,
+                    narration=narration,
+                )
+            else:
+                # Type, scroll, key_press → pas besoin de re-scanner
+                await asyncio.sleep(0.3)
+                narration = f"J'ai effectué {step.action_type} sur '{step.target_description}'."
+                return StepResult(
+                    step_index=step_index,
+                    success=True,
+                    action_performed=action_desc,
+                    ui_changes=[],
+                    new_state=ui_state,
+                    narration=narration,
+                )
 
         except Exception as e:
             logger.error(f"❌ Erreur exécution step {step_index} : {e}")
