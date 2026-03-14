@@ -1,5 +1,19 @@
 # DECISIONS — Phantom UI Navigator
 
+## [2026-03-14] — Option Select: Lightweight Action Chaining
+
+**Contexte:** Quand l'utilisateur cliquait sur une carte d'option (ex: "Set departure to Paris"), le frontend envoyait un message `command` classique. Le backend re-calculait l'URL, re-analysait la page, re-générait un plan complet, et re-résumait. Résultat : 3 messages "Got it" en boucle et zéro action réelle sur le site.
+
+**Décision:** Créer un type WS distinct `option_select` qui appelle `_handle_option_select()` — une fonction légère qui : (1) trouve l'élément correspondant au texte de l'option, (2) clique dessus via Playwright, (3) screenshot + résumé. Pas d'inférence d'URL, pas de re-navigation.
+
+**Alternatives rejetées:**
+- Filtrer les options dans `_handle_ws_command` → trop complexe, logique mixée
+- Envoyer les coordonnées depuis le frontend → pas de coordonnées dans les options JSON
+
+**Impact:** `api/main.py`, `frontend/app.js`
+
+---
+
 ## [2026-03-14] — Conversational Agent Narration
 
 **Contexte:** L'expérience utilisateur était robotique ("Étape 1/3 : type sur Search Google Maps"). Les juges et utilisateurs attendent un agent qui parle naturellement, comme un assistant humain.

@@ -1,5 +1,20 @@
 # CHANGELOG — Phantom UI Navigator
 
+## [v0.9.0] — 2026-03-14 — ANTIGRAVITY
+
+### Corrigé
+- **Narration spam** — Supprimé les messages en double : "Got it. Let me handle that for you." (dupliqué entre `_handle_ws_command` et `execute_plan`), "I can see X interactive elements..." (trop technique), et "Done! I completed everything successfully." (faux positif quand rien n'avait changé).
+- **Option click re-trigger** — Les clics sur les cartes d'options relançaient le cycle complet (URL inference → re-analyse → re-plan → re-summarize). Créé un nouveau type WS `option_select` + `_handle_option_select()` pour un chaînage léger (find element → click → screenshot → summarize).
+- **Scroll reset sidebar** — `addLog()` forçait un `scrollIntoView` à chaque log. Maintenant, l'auto-scroll ne se déclenche que si l'utilisateur est déjà près du bas (< 200px).
+- **classList null crash** — Ajouté des null checks sur les 35 accès `.classList` dans `app.js` pour éviter les `TypeError` quand les éléments DOM ne sont pas encore chargés.
+
+### Modifié
+- `agents/action_agent.py` — `execute_plan()` ne génère plus de narration d'ouverture ni de clôture (délégué à `_handle_ws_command` et `_summarize_results`).
+- `api/main.py` — Nouveau handler WS `option_select`, nouvelle fonction `_handle_option_select()`.
+- `frontend/app.js` — `handleOptionClick()` envoie `option_select` au lieu de `command`. Auto-scroll conditionnel.
+
+---
+
 ## [v0.8.0] — 2026-03-14 — ANTIGRAVITY
 
 ### Ajouté

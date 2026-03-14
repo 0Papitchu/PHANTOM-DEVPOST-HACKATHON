@@ -2,9 +2,12 @@
 
 ## EN COURS
 
-_Aucune tâche en cours._
+[ANTIGRAVITY] [2026-03-14] — Deploying v0.9.0 to Cloud Run — fichiers touchés : agents/action_agent.py, api/main.py, frontend/app.js
 
 ## TERMINÉ
+
+[ANTIGRAVITY] [2026-03-14] — Fix interaction flow: narration spam, option chaining, scroll reset, classList crash — fichiers touchés : agents/action_agent.py, api/main.py, frontend/app.js
+
 
 [ANTIGRAVITY] [2026-03-14] — UI Split-Screen Overhaul (Tailwind CSS, Animations, Log types, Interactive Cards, Pulse Mic) — fichiers touchés : frontend/index.html, frontend/app.js
 
