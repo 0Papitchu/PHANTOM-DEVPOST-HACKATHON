@@ -73,18 +73,39 @@ class ScreenshotAgent:
         pw = await async_playwright().start()
         self.browser = await pw.chromium.launch(
             headless=settings.browser_headless,
+            args=[
+                "--no-sandbox",
+                "--disable-blink-features=AutomationControlled",
+                "--disable-dev-shm-usage",
+            ],
         )
+        # Stealth context — realistic browser fingerprint to avoid bot detection
         context = await self.browser.new_context(
             viewport={
                 "width": settings.browser_viewport_width,
                 "height": settings.browser_viewport_height,
-            }
+            },
+            user_agent=(
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/122.0.0.0 Safari/537.36"
+            ),
+            locale="en-US",
+            timezone_id="America/New_York",
+            extra_http_headers={
+                "Accept-Language": "en-US,en;q=0.9,fr;q=0.8",
+            },
+        )
+        # Prevent navigator.webdriver detection
+        await context.add_init_script(
+            "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
         )
         self.page = await context.new_page()
-        await self.page.goto(target_url, wait_until="domcontentloaded")
+        await self.page.goto(target_url, wait_until="domcontentloaded", timeout=30000)
 
         logger.info(f"✅ Navigateur prêt — page chargée")
         return self._session_id
+
 
     async def take_screenshot(self) -> dict:
         """

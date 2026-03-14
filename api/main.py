@@ -508,20 +508,29 @@ async def _auto_navigate_and_execute(intent: str):
         await broadcast({"type": "auto_navigate", "url": url})
 
         # Start session programmatically
+        # Note: action_agent MUST be initialized AFTER start_browser() so page is ready
         phantom.screenshot_agent = ScreenshotAgent()
         phantom.analyzer_agent = AnalyzerAgent()
-        phantom.action_agent = ActionAgent()
         phantom.session_id = str(uuid.uuid4())
 
         await phantom.screenshot_agent.start_browser(url)
-        screenshot = await phantom.screenshot_agent.take_screenshot()
-        page_url = phantom.screenshot_agent.page.url
-        ui_state = await phantom.analyzer_agent.analyze_screenshot(screenshot)
+
+        # Get raw bytes for analysis (take_screenshot() returns metadata dict, not bytes)
+        screenshot_bytes = await phantom.screenshot_agent.page.screenshot(type="png")
+        await phantom.screenshot_agent.take_screenshot()  # Upload to GCS + Pub/Sub
+
+        ui_state = await phantom.analyzer_agent.analyze_screenshot(screenshot_bytes)
         phantom.current_ui_state = ui_state
+
+        # Initialize ActionAgent AFTER page is available
+        phantom.action_agent = ActionAgent(
+            page=phantom.screenshot_agent.page,
+            analyzer=phantom.analyzer_agent,
+        )
         phantom.is_running = True
 
         import base64 as b64mod
-        encoded = b64mod.b64encode(screenshot).decode("utf-8")
+        encoded = b64mod.b64encode(screenshot_bytes).decode("utf-8")
         await broadcast({
             "type": "screenshot",
             "image": f"data:image/png;base64,{encoded}",
@@ -532,8 +541,19 @@ async def _auto_navigate_and_execute(intent: str):
         await _handle_ws_command(intent)
 
     except Exception as e:
-        logger.error(f"❌ Auto-navigate error: {e}")
-        await broadcast({"type": "error", "message": str(e)})
+        logger.error(f"❌ Auto-navigate error: {e}", exc_info=True)
+        await broadcast({"type": "error", "message": f"Erreur de démarrage: {str(e)}"})
+        # Reset state on failure
+        phantom.is_running = False
+        phantom.session_id = None
+        if phantom.screenshot_agent:
+            try:
+                await phantom.screenshot_agent.close()
+            except:
+                pass
+        phantom.screenshot_agent = None
+        phantom.action_agent = None
+
 
 
 async def _infer_url(intent: str) -> Optional[str]:
