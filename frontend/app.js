@@ -752,9 +752,12 @@ function addLog(icon, text, type = 'narration', options = null) {
             btn.onclick = () => handleOptionClick(opt);
             
             btn.innerHTML = `
-                <div class="flex flex-col">
-                    <span class="font-bold text-slate-800 text-sm">${escapeHtml(opt.title || opt)}</span>
-                    ${opt.subtitle ? `<span class="text-xs text-slate-500 mt-0.5">${escapeHtml(opt.subtitle)}</span>` : ''}
+                <div class="flex items-center gap-3">
+                    ${opt.icon ? `<span class="text-xl flex-shrink-0">${opt.icon}</span>` : ''}
+                    <div class="flex flex-col">
+                        <span class="font-bold text-slate-800 text-sm">${escapeHtml(opt.title || opt)}</span>
+                        ${opt.subtitle ? `<span class="text-xs text-slate-500 mt-0.5">${escapeHtml(opt.subtitle)}</span>` : ''}
+                    </div>
                 </div>
                 <div class="opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all text-bahama-blue-500 flex-shrink-0 ml-2">
                     <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>

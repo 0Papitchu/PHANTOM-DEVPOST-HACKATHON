@@ -9,6 +9,16 @@
 - **Pulsing Mic Radar** — Ajout d'une animation radar concentrique gérée par CSS lors de l'enregistrement vocal (activation du micro).
 - **Custom Scrollbars & Design System** — Palette de couleurs adoucies (`slate-50`, `slate-900`) et accetuation via `bahama-blue`.
 
+## [v0.7.1] — 2026-03-14 — ANTIGRAVITY
+
+### Corrigé
+- **app.js 404 sur deploy** — Le `<script src="app.js">` référençait la racine, mais FastAPI monte les fichiers frontend sous `/static/`. Corrigé vers `<script src="/static/app.js">`.
+- **DOM references cassées** — Supprimé les refs à `scanLine` et `stopBtn` (éléments inexistants dans le nouveau HTML). Ajouté `statusDot`, `elementCountBadge` corrects.
+- **setStatus() écrasait les classes Tailwind** — Réécrit avec les bonnes classes CSS pour `online`/`offline`.
+- **switchTab() cherchait `.panel-tab`** — Réécrit pour utiliser `#tabActivity` / `#tabElements` (nouveaux IDs).
+- **startBtn.textContent écrasait les spans internes** — Créé `updateStartBtn()` helper pour modifier `#startIcon` et `#startText` proprement.
+- **displayScreenshot() n'enlevait pas `.hidden`** — Ajouté `classList.remove('hidden')`.
+
 ## [v0.6.0] — 2026-03-14 — ANTIGRAVITY
 
 ### Ajouté

@@ -647,15 +647,28 @@ async def _handle_ws_command(intent: str):
                 "image": f"data:image/png;base64,{final_b64}",
             })
 
-            # Ask Gemini to summarize the results conversationally
-            result_summary = await _summarize_results(final_screenshot, intent)
-            if result_summary:
-                payload = {"type": "result_summary", "text": result_summary}
+            # Ask Gemini to summarize the results AND generate interactive options
+            summary_data = await _summarize_results(final_screenshot, intent)
+            if summary_data:
+                summary_text = summary_data.get("text", "") if isinstance(summary_data, dict) else str(summary_data)
+                summary_options = summary_data.get("options", []) if isinstance(summary_data, dict) else []
+                payload = {
+                    "type": "result_summary",
+                    "text": summary_text,
+                    "options": summary_options,
+                }
                 if phantom.accessibility_mode:
-                    audio_b64 = await generate_tts_audio(result_summary)
+                    audio_b64 = await generate_tts_audio(summary_text)
                     if audio_b64:
                         payload["audio"] = audio_b64
                 await broadcast(payload)
+
+            # Broadcast current URL to update the URL bar
+            try:
+                current_url = phantom.screenshot_agent.page.url
+                await broadcast({"type": "auto_navigate", "url": current_url})
+            except Exception:
+                pass
 
             # Update UI state
             final_state = await phantom.analyzer_agent.analyze_screenshot(final_screenshot)
@@ -672,35 +685,44 @@ async def _handle_ws_command(intent: str):
         await broadcast({"type": "error", "message": str(e)})
 
 
-async def _summarize_results(screenshot: bytes, user_intent: str) -> Optional[str]:
-    """Ask Gemini to read the current page and summarize what it sees
-    in a natural, conversational way — like a human assistant would."""
+async def _summarize_results(screenshot: bytes, user_intent: str) -> Optional[dict]:
+    """Ask Gemini to read the current page and return a structured JSON response
+    with a conversational text summary AND interactive option cards."""
     try:
         from agents.gemini_utils import get_gemini_client
         from google.genai import types
 
         client = get_gemini_client()
-        b64_img = base64.b64encode(screenshot).decode("utf-8")
 
         prompt = f"""You are Phantom, a friendly AI assistant navigating the web for a user.
 The user asked: "{user_intent}"
 
 Look at this screenshot of the current page state AFTER I performed actions.
-Describe what you see in a natural, conversational way as if you were a helpful friend.
+
+Return a JSON object with:
+1. "text": A natural, conversational summary (2-4 sentences). Speak like a helpful friend: "I found...", "Here's what I see..."
+2. "options": An array of 2-4 interactive choices the user might want to pick next. Each option has:
+   - "title": Short label (e.g. "Air France — Direct")
+   - "subtitle": Details (e.g. "Depart 10:30 — Arrive 19:15 • 450€")
+   - "icon": An emoji that fits (✈️, 🏨, 📰, 🛒, etc.)
 
 RULES:
-- Be concise but informative (2-4 sentences max)
-- If there are results (flights, search results, listings, products), mention the top 2-3 options with key details (price, time, name)
-- If the page shows an error or nothing changed, say so honestly
-- Speak directly to the user: "I found...", "Here's what I see...", "The page shows..."
-- Do NOT mention technical details (screenshots, steps, elements)
-- Do NOT say "I executed 3 steps" — just describe what happened naturally
-- Use a friendly, helpful tone
+- "text" must be concise, friendly, NO technical jargon (no "screenshots", "steps", "elements")
+- If there are search results/flights/products visible, list the top 2-4 as options
+- If the page is a form or landing page, suggest logical next actions as options
+- If nothing meaningful happened, say so honestly and suggest what to try
+- Always provide at least 1-2 options so the user can interact
+- Return ONLY valid JSON, no markdown
 
-Example good responses:
-- "I found 3 flights from Paris to Dubai. The cheapest is with Emirates at $420, departing at 2:15 PM. Air France also has one at $510 at 6:00 PM."
-- "Here are the directions — it's about 25 minutes by car from Manhattan to JFK. The fastest route is via I-278."
-- "I searched for that and here are the top results. The first article is from Reuters about the latest speech."
+Return format:
+{{
+  "text": "I found 3 great flights from Paris to Dubai. Here are the best options:",
+  "options": [
+    {{"title": "Air France — Direct", "subtitle": "Depart 10:30 — Arrive 19:15 • 450€", "icon": "✈️"}},
+    {{"title": "Transavia — Economy", "subtitle": "Depart 06:15 — Arrive 15:40 • 290€", "icon": "✈️"}},
+    {{"title": "Emirates — Premium", "subtitle": "Depart 14:00 — Arrive 22:30 • 680€", "icon": "✈️"}}
+  ]
+}}
 """
 
         response = await asyncio.to_thread(
@@ -713,7 +735,27 @@ Example good responses:
                 ])
             ],
         )
-        return response.text.strip() if response.text else None
+        
+        if not response or not response.text:
+            return None
+        
+        result_text = response.text.strip()
+        # Clean markdown wrapping
+        if result_text.startswith("```json"):
+            result_text = result_text[7:]
+        if result_text.startswith("```"):
+            result_text = result_text[3:]
+        if result_text.endswith("```"):
+            result_text = result_text[:-3]
+        result_text = result_text.strip()
+        
+        try:
+            data = json.loads(result_text)
+            return data
+        except json.JSONDecodeError:
+            # Fallback: return as plain text with no options
+            return {"text": response.text.strip(), "options": []}
+
     except Exception as e:
         logger.error(f"❌ Error summarizing results: {e}")
         return None
