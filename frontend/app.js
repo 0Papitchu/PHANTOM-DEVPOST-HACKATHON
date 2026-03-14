@@ -104,8 +104,10 @@ async function startSession() {
         if (startIcon) startIcon.textContent = '⏹';
         if (startText) startText.textContent = 'STOP';
         startBtn.onclick = stopSession;
-        startBtn.classList.remove('text-slate-600', 'bg-white', 'border-slate-200');
-        startBtn.classList.add('text-red-600', 'bg-red-50', 'border-red-200');
+        if (startBtn) {
+            startBtn.classList.remove('text-slate-600', 'bg-white', 'border-slate-200');
+            startBtn.classList.add('text-red-600', 'bg-red-50', 'border-red-200');
+        }
 
         addLog('✅', `Session started — ${data.elements_found} elements detected`, 'system');
         addLog('👁️', `Page context: ${data.page_context}`, 'agent');
@@ -143,13 +145,15 @@ async function stopSession() {
     if (startIcon) startIcon.textContent = '▶';
     if (startText) startText.textContent = 'START';
     startBtn.onclick = startSession;
-    startBtn.classList.remove('text-red-600', 'bg-red-50', 'border-red-200');
-    startBtn.classList.add('text-slate-600', 'bg-white', 'border-slate-200');
+    if (startBtn) {
+        startBtn.classList.remove('text-red-600', 'bg-red-50', 'border-red-200');
+        startBtn.classList.add('text-slate-600', 'bg-white', 'border-slate-200');
+    }
     startBtn.disabled = false;
 
     // Clear screenshot
     screenshotImg.style.display = 'none';
-    screenshotImg.classList.add('hidden');
+    if (screenshotImg) screenshotImg.classList.add('hidden');
     placeholder.style.display = 'flex';
     overlayContainer.innerHTML = '';
     loadingOverlay.style.display = 'none';
@@ -283,8 +287,10 @@ function handleWsMessage(msg) {
             if (startIcon) startIcon.textContent = '⏹';
             if (startText) startText.textContent = 'STOP';
             startBtn.onclick = stopSession;
-            startBtn.classList.remove('text-slate-600', 'bg-white', 'border-slate-200');
-            startBtn.classList.add('text-red-600', 'bg-red-50', 'border-red-200');
+            if (startBtn) {
+                startBtn.classList.remove('text-slate-600', 'bg-white', 'border-slate-200');
+                startBtn.classList.add('text-red-600', 'bg-red-50', 'border-red-200');
+            }
             startBtn.disabled = false;
             setStatus('online', 'LIVE');
             startScreenshotPolling();
@@ -393,7 +399,7 @@ async function refreshScreenshot() {
 function displayScreenshot(dataUrl) {
     screenshotImg.src = dataUrl;
     screenshotImg.style.display = 'block';
-    screenshotImg.classList.remove('hidden');
+    if (screenshotImg) screenshotImg.classList.remove('hidden');
     placeholder.style.display = 'none';
 }
 
@@ -642,14 +648,23 @@ function startRecording() {
     recognition.start();
     isRecording = true;
     
-    micBtn.classList.remove('bg-white', 'text-slate-400', 'border-slate-200');
-    micBtn.classList.add('bg-bahama-blue-600', 'text-white', 'border-bahama-blue-600', 'shadow-md');
+    if (micBtn) {
+        micBtn.classList.remove('bg-white', 'text-slate-400', 'border-slate-200');
+        micBtn.classList.add('bg-bahama-blue-600', 'text-white', 'border-bahama-blue-600', 'shadow-md');
+    }
     micBtn.innerHTML = '<svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" /></svg>';
     
-    document.getElementById('micPulse1').classList.remove('hidden');
-    document.getElementById('micPulse1').classList.add('animate-radar');
-    document.getElementById('micPulse2').classList.remove('hidden');
-    document.getElementById('micPulse2').classList.add('animate-radar');
+    // Pulse rings
+    const pulse1 = document.getElementById('micPulse1');
+    const pulse2 = document.getElementById('micPulse2');
+    if (pulse1) {
+        pulse1.classList.remove('hidden');
+        pulse1.classList.add('animate-radar');
+    }
+    if (pulse2) {
+        pulse2.classList.remove('hidden');
+        pulse2.classList.add('animate-radar');
+    }
     
     addLog('🎙️', 'Voice input active - Listening...', 'system');
 }
@@ -661,14 +676,22 @@ function stopRecording() {
     }
     isRecording = false;
     
-    micBtn.classList.add('bg-white', 'text-slate-400', 'border-slate-200');
-    micBtn.classList.remove('bg-bahama-blue-600', 'text-white', 'border-bahama-blue-600', 'shadow-md');
+    if (micBtn) {
+        micBtn.classList.add('bg-white', 'text-slate-400', 'border-slate-200');
+        micBtn.classList.remove('bg-bahama-blue-600', 'text-white', 'border-bahama-blue-600', 'shadow-md');
+    }
     micBtn.innerHTML = '<svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>';
     
-    document.getElementById('micPulse1').classList.add('hidden');
-    document.getElementById('micPulse1').classList.remove('animate-radar');
-    document.getElementById('micPulse2').classList.add('hidden');
-    document.getElementById('micPulse2').classList.remove('animate-radar');
+    const unpulse1 = document.getElementById('micPulse1');
+    const unpulse2 = document.getElementById('micPulse2');
+    if (unpulse1) {
+        unpulse1.classList.add('hidden');
+        unpulse1.classList.remove('animate-radar');
+    }
+    if (unpulse2) {
+        unpulse2.classList.add('hidden');
+        unpulse2.classList.remove('animate-radar');
+    }
 }
 
 // ── Accessibility ───────────────────────────────────────────
@@ -807,15 +830,19 @@ function switchTab(tab) {
         tabElements.className = 'flex-1 text-slate-500 hover:bg-slate-100 border border-transparent hover:border-slate-200 rounded-md px-4 py-2 text-sm font-medium transition-all flex items-center justify-center gap-2';
         activityLog.style.display = 'flex';
         elementsList.style.display = 'none';
-        elementsList.classList.add('hidden');
-        activityLog.classList.remove('hidden');
+        if (elementsList) elementsList.classList.add('hidden');
+        if (activityLog) activityLog.classList.remove('hidden');
     } else {
         tabElements.className = 'flex-1 bg-white border border-slate-200 text-bahama-blue-700 shadow-sm rounded-md px-4 py-2 text-sm font-medium transition-all flex items-center justify-center gap-2';
         tabActivity.className = 'flex-1 text-slate-500 hover:bg-slate-100 border border-transparent hover:border-slate-200 rounded-md px-4 py-2 text-sm font-medium transition-all flex items-center justify-center gap-2';
-        activityLog.style.display = 'none';
-        activityLog.classList.add('hidden');
-        elementsList.style.display = 'flex';
-        elementsList.classList.remove('hidden');
+        if (activityLog) {
+            activityLog.style.display = 'none';
+            activityLog.classList.add('hidden');
+        }
+        if (elementsList) {
+            elementsList.style.display = 'flex';
+            elementsList.classList.remove('hidden');
+        }
     }
 }
 
@@ -849,11 +876,15 @@ function updateStartBtn(icon, label, isActive) {
     if (startIcon) startIcon.textContent = icon;
     if (startTextEl) startTextEl.textContent = label;
     if (isActive) {
-        startBtn.classList.remove('text-slate-600', 'bg-white', 'border-slate-200');
-        startBtn.classList.add('text-red-600', 'bg-red-50', 'border-red-200');
+        if (startBtn) {
+            startBtn.classList.remove('text-slate-600', 'bg-white', 'border-slate-200');
+            startBtn.classList.add('text-red-600', 'bg-red-50', 'border-red-200');
+        }
     } else {
-        startBtn.classList.remove('text-red-600', 'bg-red-50', 'border-red-200');
-        startBtn.classList.add('text-slate-600', 'bg-white', 'border-slate-200');
+        if (startBtn) {
+            startBtn.classList.remove('text-red-600', 'bg-red-50', 'border-red-200');
+            startBtn.classList.add('text-slate-600', 'bg-white', 'border-slate-200');
+        }
     }
 }
 
