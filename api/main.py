@@ -447,6 +447,14 @@ async def websocket_endpoint(ws: WebSocket):
                                 _handle_ws_command(intent)
                             )
 
+                case "option_select":
+                    # User clicked an option card — lightweight follow-up
+                    option_text = message.get("option", "")
+                    if option_text and phantom.is_running:
+                        asyncio.create_task(
+                            _handle_option_select(option_text)
+                        )
+
                 case "set_accessibility":
                     # Toggle Navigator for All mode
                     mode = message.get("enabled", False)
@@ -652,11 +660,6 @@ async def _handle_ws_command(intent: str):
         plan = await phantom.action_agent.generate_plan(intent, ui_state)
 
         if plan.steps:
-            await broadcast({
-                "type": "narration",
-                "text": f"I can see {len(ui_state.elements)} interactive elements. Working on it..."
-            })
-
             async def narrate(text):
                 payload = {"type": "narration", "text": text}
                 if phantom.accessibility_mode:
@@ -714,6 +717,75 @@ async def _handle_ws_command(intent: str):
 
     except Exception as e:
         logger.error(f"❌ Erreur commande WS : {e}")
+        await broadcast({"type": "error", "message": str(e)})
+
+
+async def _handle_option_select(option_text: str):
+    """Handle an option card click — lightweight action without re-inferring URL."""
+    try:
+        import base64
+
+        # Step 1: Find and click the element matching the option
+        screenshot = await phantom.screenshot_agent.page.screenshot(type="png")
+        ui_state = await phantom.analyzer_agent.analyze_screenshot(screenshot)
+
+        # Try to find and click the matching element
+        target = phantom.analyzer_agent.find_element_by_label(ui_state, option_text)
+        if target:
+            await phantom.screenshot_agent.page.mouse.click(target.center_x, target.center_y)
+            await broadcast({
+                "type": "action_click",
+                "x": target.center_x,
+                "y": target.center_y,
+            })
+            await asyncio.sleep(2)  # Wait for page reaction
+        else:
+            # Fallback: use the option text as a command for Gemini to plan
+            await broadcast({
+                "type": "narration",
+                "text": f"Working on: {option_text}..."
+            })
+            plan = await phantom.action_agent.generate_plan(option_text, ui_state)
+            if plan.steps:
+                async def narrate(text):
+                    payload = {"type": "narration", "text": text}
+                    await broadcast(payload)
+                phantom.action_agent.set_narration_callback(narrate)
+                await phantom.action_agent.execute_plan(plan, ui_state)
+            await asyncio.sleep(1)
+
+        # Step 2: Screenshot + summarize the result
+        final_screenshot = await phantom.screenshot_agent.page.screenshot(type="png")
+        final_b64 = base64.b64encode(final_screenshot).decode("utf-8")
+        await broadcast({
+            "type": "screenshot",
+            "image": f"data:image/png;base64,{final_b64}",
+        })
+
+        summary_data = await _summarize_results(final_screenshot, option_text)
+        if summary_data:
+            summary_text = summary_data.get("text", "") if isinstance(summary_data, dict) else str(summary_data)
+            summary_options = summary_data.get("options", []) if isinstance(summary_data, dict) else []
+            payload = {
+                "type": "result_summary",
+                "text": summary_text,
+                "options": summary_options,
+            }
+            await broadcast(payload)
+
+        # Update URL bar
+        try:
+            current_url = phantom.screenshot_agent.page.url
+            await broadcast({"type": "auto_navigate", "url": current_url})
+        except Exception:
+            pass
+
+        # Update UI state
+        final_state = await phantom.analyzer_agent.analyze_screenshot(final_screenshot)
+        phantom.current_ui_state = final_state
+
+    except Exception as e:
+        logger.error(f"❌ Option select error: {e}")
         await broadcast({"type": "error", "message": str(e)})
 
 

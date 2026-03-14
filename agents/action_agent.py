@@ -229,8 +229,7 @@ class ActionAgent:
         results = []
         current_state = ui_state
 
-        # Natural, human-like opening — not robotic step counting
-        await self._narrate("Got it. Let me handle that for you.")
+        # No opening narration here — _handle_ws_command already said it
 
         for i, step in enumerate(plan.steps):
             if self._paused:
@@ -247,30 +246,20 @@ class ActionAgent:
                 await asyncio.sleep(2)
 
             # Silent execution — no step-by-step narration
-            # The agent just acts, like a human would
             result = await self._execute_step(step, current_state, i)
             results.append(result)
 
             if result.success and result.new_state:
                 current_state = result.new_state
             elif not result.success:
-                await self._narrate(
-                    f"I couldn't complete '{step.target_description}'. "
-                    f"Let me try a different approach."
+                # Only narrate failures — successes are silent
+                logger.warning(
+                    f"⚠️ Step {i+1} failed: {step.target_description} — {result.error}"
                 )
                 break
 
         self._step_results = results
-        success_count = sum(1 for r in results if r.success)
-        if success_count == len(results):
-            await self._narrate(
-                f"Done! I completed everything successfully."
-            )
-        else:
-            await self._narrate(
-                f"I managed {success_count} out of {len(results)} actions. "
-                f"Some elements were hard to reach."
-            )
+        # No completion narration — _summarize_results will speak for us
 
         return results
 

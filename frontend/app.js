@@ -794,9 +794,14 @@ function addLog(icon, text, type = 'narration', options = null) {
 
     activityLog.appendChild(entry);
     
-    setTimeout(() => {
-        document.getElementById('logsEndRef').scrollIntoView({ behavior: 'smooth' });
-    }, 50);
+    // Only auto-scroll if user is already near the bottom
+    const isNearBottom = (activityLog.scrollHeight - activityLog.scrollTop - activityLog.clientHeight) < 200;
+    if (isNearBottom) {
+        setTimeout(() => {
+            const endRef = document.getElementById('logsEndRef');
+            if (endRef) endRef.scrollIntoView({ behavior: 'smooth' });
+        }, 50);
+    }
 
     // Keep max 100 entries
     while (activityLog.children.length > 100) {
@@ -806,11 +811,13 @@ function addLog(icon, text, type = 'narration', options = null) {
 
 function handleOptionClick(opt) {
     const choiceText = opt.title || opt;
-    addLog('👤', choiceText, 'user');
+    addLog('👤', `Selected: ${choiceText}`, 'user');
     
+    // Use lightweight option_select instead of full command re-processing
     if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: 'command', intent: choiceText }));
+        ws.send(JSON.stringify({ type: 'option_select', option: choiceText }));
     } else {
+        // Fallback to REST command
         fetch(`${API_BASE}/api/command`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
