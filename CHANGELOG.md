@@ -1,5 +1,25 @@
 # CHANGELOG — Phantom UI Navigator
 
+## [v0.6.0] — 2026-03-14 — ANTIGRAVITY
+
+### Ajouté
+- **Smart Auto-Navigation** — L'utilisateur n'a plus besoin d'entrer un URL. Phantom utilise Gemini pour détecter le meilleur site web à partir de l'intent (ex: "Find flights Paris to Dubai" → google.com/travel/flights). Nouvelles fonctions `_auto_navigate_and_execute()` et `_infer_url()` dans `api/main.py`.
+- **Post-Execution Result Summarizer** — Après chaque action, Gemini analyse le screenshot du résultat et présente les informations de manière conversationnelle (ex: "I found 3 flights. The cheapest is Emirates at $420"). Nouvelle fonction `_summarize_results()` dans `api/main.py`.
+- **Result Bubble CSS** — Style distinct `.log-entry.result` avec gradient et taille de texte plus grande pour les résumés de résultats dans le sidebar.
+- Nouveaux types WebSocket : `result_summary`, `context_update`, `auto_navigate`, `session_auto_started`.
+
+### Modifié
+- `agents/action_agent.py` — Narration humaine : "Got it. Let me handle that for you." au lieu de "Étape 1/3 : type sur..." + exécution silencieuse (pas d'annonce par étape).
+- `api/main.py` — `_handle_ws_command()` réécrit pour un flow conversationnel. Suppression des messages robotiques `progress` et `plan_generated` avec liste d'étapes.
+- `frontend/app.js` — `sendCommand()` fonctionne sans session active (auto-connection WebSocket + loading animation). Handlers pour `result_summary`, `context_update`, `auto_navigate`, `session_auto_started`.
+- `frontend/index.html` — Placeholder mis à jour : "Just tell Phantom what you need" + "e.g. Find flights from Paris to Dubai..."
+
+### Corrigé
+- Bug de syntaxe double `await self._narrate()` imbriqué dans `action_agent.py`
+- Suppression de `commandInput.value = ''` en double dans `app.js`
+
+---
+
 ## [v0.5.1] — 2026-03-12 — ANTIGRAVITY
 
 ### Modifié

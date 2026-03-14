@@ -58,16 +58,15 @@ Infrastructure               ← GCP services (Storage, Firestore, Pub/Sub, TTS)
 
 ## Flux de données
 
-1. **User** → parle ou tape une commande
-2. **Frontend** → transcription vocale (Web Speech API) → WebSocket
-3. **API** → reçoit l'intent (et le statut `accessibility_mode`) → déclenche le pipeline
-4. **Progress broadcast** → `analyzing` → `planning` → `executing` (temps réel via WS)
-5. **Screenshot Agent** → capture l'écran via Playwright
-6. **Analyzer Agent** → envoie à Gemini Vision (via `gemini_generate_with_retry`) → retourne UIState JSON
-7. **Action Agent** → génère un plan (via `gemini_generate_with_retry`) → exécute étape par étape (coordonnées visuelles)
-8. **Validation** → re-capture → compare UIState → confirme succès
-9. **Narration (Standard)** → Web Speech API côté navigateur
-10. **Narration (Accessibility Mode)** → **Google Cloud TTS** (backend génère MP3 Base64) → streamé via WebSocket → lecture native `new Audio()` côté frontend.
+1. **User** → parle ou tape une commande (ex: "Find flights Paris to Dubai")
+2. **Frontend** → transcription vocale (Web Speech API) ou texte → WebSocket
+3. **API** → si **pas de session active** : `_infer_url()` demande à Gemini le meilleur URL → `_auto_navigate_and_execute()` crée la session
+4. **Screenshot Agent** → capture l'écran via Playwright
+5. **Analyzer Agent** → envoie à Gemini Vision (via `gemini_generate_with_retry`) → retourne UIState JSON
+6. **Action Agent** → génère un plan (silencieux) → exécute étape par étape (coordonnées visuelles)
+7. **Result Summarizer** → `_summarize_results()` prend un screenshot du résultat → Gemini lit et décrit conversationnellement ("I found 3 flights...")
+8. **Narration** → résultat envoyé comme `result_summary` via WebSocket → affiché en bulle dans le sidebar + voix TTS
+9. **Continuation** → l'utilisateur peut interrompre à tout moment avec une nouvelle commande → re-loop étape 2
 
 ## Principe fondamental
 
@@ -82,6 +81,7 @@ Infrastructure               ← GCP services (Storage, Firestore, Pub/Sub, TTS)
 | ADK | `agents/adk_agents.py` | LlmAgent wrappers (Orchestrator, Vision, Planner) |
 | Agents | `agents/screenshot_agent.py` | Playwright + GCS + Pub/Sub |
 | Agents | `agents/analyzer_agent.py` | Gemini Vision + UIState + diff |
-| Agents | `agents/action_agent.py` | Planner + Executor + validation |
-| API | `api/main.py` | FastAPI + WS + orchestration + TTS |
+| Agents | `agents/action_agent.py` | Planner + Executor + narration conversationnelle |
+| API | `api/main.py` | FastAPI + WS + auto-navigation + result summarizer + TTS |
 | Frontend | `frontend/index.html` | UI cyberpunk + overlay + voice |
+| Frontend | `frontend/app.js` | WebSocket client + auto-session + result display |

@@ -6,7 +6,7 @@ _Aucune tâche en cours._
 
 ## TERMINÉ
 
-[ANTIGRAVITY] [2026-03-12] — Validation finale des tests réels (Craigslist, Google Flights) + Fix JSON truncation + Fix session deadlock — fichiers : agents/analyzer_agent.py, api/main.py
+[ANTIGRAVITY] [2026-03-14] — Agent conversationnel + Smart auto-navigation + Result summarizer — fichiers : agents/action_agent.py, api/main.py, frontend/app.js, frontend/index.html
 
 [ANTIGRAVITY] [2026-03-06] — Browser verification des fixes techniques — fichiers touchés : agents/*.py, api/main.py
 

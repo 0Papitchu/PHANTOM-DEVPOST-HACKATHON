@@ -1,5 +1,33 @@
 # DECISIONS — Phantom UI Navigator
 
+## [2026-03-14] — Conversational Agent Narration
+
+**Contexte:** L'expérience utilisateur était robotique ("Étape 1/3 : type sur Search Google Maps"). Les juges et utilisateurs attendent un agent qui parle naturellement, comme un assistant humain.
+
+**Décision:** Suppression de toute narration étape-par-étape. L'agent dit "Got it. Let me handle that for you.", exécute silencieusement, puis utilise Gemini Vision pour lire le résultat et présenter conversationnellement ("I found 3 flights. The cheapest is Emirates at $420."). Nouveau message WebSocket `result_summary`.
+
+**Alternatives rejetées:**
+- Garder les étapes mais les reformuler → toujours robotique
+- Supprimer toute narration → l'utilisateur ne sait pas ce qui se passe
+
+**Impact:** `agents/action_agent.py`, `api/main.py`, `frontend/app.js`, `frontend/index.html`
+
+---
+
+## [2026-03-14] — Smart Auto-Navigation (No URL Required)
+
+**Contexte:** L'utilisateur devait d'abord entrer un URL, puis cliquer START, puis taper une commande. Un vrai agent devrait comprendre où aller.
+
+**Décision:** Quand l'utilisateur tape un intent sans session active, Gemini infère le meilleur URL (`_infer_url()`), une session est créée automatiquement (`_auto_navigate_and_execute()`), puis la commande est exécutée. L'utilisateur tape juste "Find flights Paris to Dubai" et tout se fait.
+
+**Alternatives rejetées:**
+- Hardcoder un mapping intent → URL → pas flexible
+- Toujours démarrer sur Google → pas optimal pour les cas d'usage spécifiques
+
+**Impact:** `api/main.py`, `frontend/app.js`, `frontend/index.html`
+
+---
+
 ## [2026-03-06] — ADK Integration Strategy
 
 **Contexte:** Le hackathon demande l'utilisation du Google ADK (Agent Development Kit). google-adk était installé depuis le début (v0.3.0) mais jamais intégré dans le code. Un juge regardant le code verrait un red flag.
