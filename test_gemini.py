@@ -8,7 +8,7 @@ try:
         location="us-central1",
     )
     response = client.models.generate_content(
-        model='gemini-2.0-flash',
+        model='gemini-2.5-flash',
         contents='Say exactly: PHANTOM READY'
     )
     print(f"✅ SUCCESS via Vertex AI! Response: {response.text.strip()}")

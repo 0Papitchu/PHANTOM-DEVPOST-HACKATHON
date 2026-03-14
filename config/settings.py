@@ -34,7 +34,7 @@ class Settings(BaseSettings):
         description="Clé API Gemini (ou via Secret Manager)",
     )
     gemini_model: str = Field(
-        default="gemini-2.0-flash",
+        default="gemini-2.5-flash",
         description="Modèle Gemini à utiliser",
     )
     gemini_secret_name: str = Field(
