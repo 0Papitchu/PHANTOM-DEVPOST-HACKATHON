@@ -1,5 +1,17 @@
 # CHANGELOG — Phantom UI Navigator
 
+## [v0.8.0] — 2026-03-14 — ANTIGRAVITY
+
+### Ajouté
+- **Interactive Option Cards** — `_summarize_results` génère maintenant un JSON structuré avec `text` + `options[]` (titre, sous-titre, icône). Le frontend affiche des boutons-cartes interactifs avec icône à gauche et flèche au survol.
+- **Smart URL Navigation** — `_handle_ws_command` détecte automatiquement si l'intent de l'utilisateur nécessite un autre site web et navigue en conséquence (ex: passer de Google Flights à Google Hotels).
+- **URL Bar Sync** — Broadcast `auto_navigate` après chaque action pour synchroniser la barre d'URL du frontend.
+
+### Corrigé
+- **`_summarize_results` INVALID_ARGUMENT** — La fonction utilisait `types.Content(parts=[...])` au lieu d'une liste plate de `Part` objects, causant un crash silencieux. Ajouté `response_mime_type='application/json'`.
+- **Narration robotique** — Remplacé "Let me understand the page..." par des messages naturels : "Got it. Let me handle that for you."
+- **Result summary toujours exécuté** — Le résumé avec options est maintenant généré même si les étapes d'action échouent.
+
 ## [v0.7.0] — 2026-03-14 — ANTIGRAVITY
 
 ### Ajouté
