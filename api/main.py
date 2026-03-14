@@ -761,11 +761,13 @@ Return format:
             client.models.generate_content,
             model=settings.gemini_model,
             contents=[
-                types.Content(parts=[
-                    types.Part.from_text(text=prompt),
-                    types.Part.from_bytes(data=screenshot, mime_type="image/png"),
-                ])
+                types.Part.from_text(text=prompt),
+                types.Part.from_bytes(data=screenshot, mime_type="image/png"),
             ],
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                temperature=0.3,
+            ),
         )
         
         if not response or not response.text:
