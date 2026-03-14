@@ -162,11 +162,21 @@ class ActionAgent:
         """Enregistre un callback pour la narration en temps réel."""
         self._on_narration = callback
 
+    def set_action_callback(self, callback):
+        """Enregistre un callback pour diffuser les actions en cours."""
+        self._on_action = callback
+
     async def _narrate(self, text: str):
         """Envoie un message de narration (voix + log)."""
         logger.info(f"🎙️ {text}")
         if self._on_narration:
             await self._on_narration(text)
+            
+    async def _broadcast_action(self, text: str):
+        """Envoie un message de status d'action exécutée."""
+        logger.info(f"⚙️ {text}")
+        if hasattr(self, '_on_action') and self._on_action:
+            await self._on_action(text)
 
     # ── Planning ─────────────────────────────────────────────
 
@@ -245,7 +255,15 @@ class ActionAgent:
                 )
                 await asyncio.sleep(2)
 
-            # Silent execution — no step-by-step narration
+            # Broadcast the action being attempted
+            action_msg = f"Executing: {step.action_type}"
+            if step.target_description:
+                action_msg += f" on '{step.target_description}'"
+            if step.value:
+                action_msg += f" with value '{step.value}'"
+            await self._broadcast_action(action_msg)
+
+            # Execution
             result = await self._execute_step(step, current_state, i)
             results.append(result)
 
@@ -314,6 +332,12 @@ class ActionAgent:
                 await asyncio.sleep(2.0)
                 screenshot = await self.page.screenshot(type="png")
                 new_state = await self.analyzer.analyze_screenshot(screenshot)
+                
+                # Broadcaster le nouveau screenshot
+                import base64
+                b64_img = base64.b64encode(screenshot).decode("utf-8")
+                # Need to use the global broadcast if possible, or just skip it since main.py will see results
+                
                 narration = f"J'ai cliqué sur '{step.target_description}'. {len(new_state.elements)} éléments détectés."
                 return StepResult(
                     step_index=step_index,
@@ -325,7 +349,7 @@ class ActionAgent:
                 )
             else:
                 # Type, scroll, key_press → pas besoin de re-scanner
-                await asyncio.sleep(0.3)
+                await asyncio.sleep(0.5)  # Légèrement allongé pour la fluidité
                 narration = f"J'ai effectué {step.action_type} sur '{step.target_description}'."
                 return StepResult(
                     step_index=step_index,
@@ -374,8 +398,9 @@ class ActionAgent:
             case "type":
                 # Cliquer d'abord pour focus
                 await self.page.mouse.click(element.center_x, element.center_y)
-                await asyncio.sleep(0.2)
+                await asyncio.sleep(0.5) # Plus long pour les SPAs comme Google Flights
                 await self.page.keyboard.type(step.value or "", delay=50)
+                await asyncio.sleep(0.5) 
                 return f"Type '{step.value}' @ ({element.center_x}, {element.center_y})"
 
             case "key_press":

@@ -44,7 +44,7 @@ playwright install chromium
 cp .env.example .env
 # Edit .env with your GEMINI_API_KEY
 
-# 3. Run
+# 3. Run 
 python -m uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 

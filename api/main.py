@@ -668,7 +668,11 @@ async def _handle_ws_command(intent: str):
                         payload["audio"] = audio_b64
                 await broadcast(payload)
 
+            async def broadcast_action(text):
+                await broadcast({"type": "action", "text": text})
+
             phantom.action_agent.set_narration_callback(narrate)
+            phantom.action_agent.set_action_callback(broadcast_action)
             results = await phantom.action_agent.execute_plan(plan, ui_state)
         else:
             results = []
@@ -750,7 +754,11 @@ async def _handle_option_select(option_text: str):
                 async def narrate(text):
                     payload = {"type": "narration", "text": text}
                     await broadcast(payload)
+                async def broadcast_action(text):
+                    await broadcast({"type": "action", "text": text})
+                
                 phantom.action_agent.set_narration_callback(narrate)
+                phantom.action_agent.set_action_callback(broadcast_action)
                 await phantom.action_agent.execute_plan(plan, ui_state)
             await asyncio.sleep(1)
 

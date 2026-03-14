@@ -304,12 +304,12 @@ function handleWsMessage(msg) {
 
 // ── Commands ────────────────────────────────────────────────
 
-async function sendCommand() {
+async function sendCommand(isVoice = false) {
     const intent = commandInput.value.trim();
     if (!intent) return;
 
     commandInput.value = '';
-    addLog('👤', intent, 'user');
+    addLog(isVoice === true ? '🗣️' : '👤', intent, 'user');
 
     // If no session, auto-connect WebSocket and let backend handle auto-navigation
     if (!isSessionActive) {
@@ -632,7 +632,7 @@ function startRecording() {
 
         if (event.results[0].isFinal) {
             stopRecording();
-            sendCommand();
+            sendCommand(true);
         }
     };
 
@@ -792,11 +792,12 @@ function addLog(icon, text, type = 'narration', options = null) {
         entry.appendChild(optionsContainer);
     }
 
+    // Only auto-scroll if user is already near the bottom
+    const wasNearBottom = (activityLog.scrollHeight - activityLog.scrollTop - activityLog.clientHeight) < 200;
+
     activityLog.appendChild(entry);
     
-    // Only auto-scroll if user is already near the bottom
-    const isNearBottom = (activityLog.scrollHeight - activityLog.scrollTop - activityLog.clientHeight) < 200;
-    if (isNearBottom) {
+    if (wasNearBottom) {
         setTimeout(() => {
             const endRef = document.getElementById('logsEndRef');
             if (endRef) endRef.scrollIntoView({ behavior: 'smooth' });
@@ -809,21 +810,6 @@ function addLog(icon, text, type = 'narration', options = null) {
     }
 }
 
-function handleOptionClick(opt) {
-    const choiceText = opt.title || opt;
-    addLog('👤', `Selected: ${choiceText}`, 'user');
-    
-    // Use lightweight option_select instead of full command re-processing
-    if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: 'option_select', option: choiceText }));
-    } else {
-        // Fallback to REST command
-        fetch(`${API_BASE}/api/command`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ intent: choiceText, auto_execute: true }),
-        }).catch(err => addLog('❌', `Error: ${err.message}`, 'system'));
-    }
 }
 
 // ── Tab Switching ───────────────────────────────────────────

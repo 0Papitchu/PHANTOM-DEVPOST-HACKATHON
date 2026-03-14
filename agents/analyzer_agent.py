@@ -384,7 +384,7 @@ class AnalyzerAgent:
                         best_score = score
                         best_match = el
 
-        if best_match and best_score > 0.2:
+        if best_match and best_score > 0.1:
             logger.info(
                 f"🎯 Élément trouvé : '{best_match.label}' "
                 f"(score={best_score:.2f}) @ ({best_match.center_x}, {best_match.center_y})"
