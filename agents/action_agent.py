@@ -196,31 +196,25 @@ class ActionAgent:
         results = []
         current_state = ui_state
 
-        await self._narrate(
-            f"C'est parti. J'ai {plan.total_steps} étapes à réaliser "
-            f"pour : {plan.intent}"
-        )
+        # Natural, human-like opening — not robotic step counting
+        await self._narrate("Got it. Let me handle that for you.")
 
         for i, step in enumerate(plan.steps):
             if self._paused:
-                await self._narrate("En pause. Dites-moi quand reprendre.")
+                await self._narrate("I'm paused. Let me know when to continue.")
                 while self._paused:
                     await asyncio.sleep(0.5)
 
             # Confirmation pour les actions à risque
             if step.requires_confirmation:
                 await self._narrate(
-                    f"⚠️ Action à risque : {step.action_type} sur "
-                    f"'{step.target_description}'. En attente de confirmation."
+                    f"⚠️ This action could be risky: {step.action_type} on "
+                    f"'{step.target_description}'. Waiting for your confirmation."
                 )
-                # TODO: attendre confirmation vocale
                 await asyncio.sleep(2)
 
-            await self._narrate(
-                f"Étape {i+1}/{plan.total_steps} : "
-                f"{step.action_type} sur '{step.target_description}'"
-            )
-
+            # Silent execution — no step-by-step narration
+            # The agent just acts, like a human would
             result = await self._execute_step(step, current_state, i)
             results.append(result)
 
@@ -228,17 +222,22 @@ class ActionAgent:
                 current_state = result.new_state
             elif not result.success:
                 await self._narrate(
-                    f"❌ Étape {i+1} échouée : {result.error}. "
-                    f"Fallback : {step.fallback}"
+                    f"I couldn't complete '{step.target_description}'. "
+                    f"Let me try a different approach."
                 )
-                # On continue pour le moment — le Validator décidera
                 break
 
         self._step_results = results
         success_count = sum(1 for r in results if r.success)
-        await self._narrate(
-            f"Terminé. {success_count}/{len(results)} étapes réussies."
-        )
+        if success_count == len(results):
+            await self._narrate(
+                f"Done! I completed everything successfully."
+            )
+        else:
+            await self._narrate(
+                f"I managed {success_count} out of {len(results)} actions. "
+                f"Some elements were hard to reach."
+            )
 
         return results
 

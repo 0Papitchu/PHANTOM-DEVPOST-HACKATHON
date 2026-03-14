@@ -490,35 +490,33 @@ async def websocket_endpoint(ws: WebSocket):
 
 
 async def _handle_ws_command(intent: str):
-    """Gère une commande reçue par WebSocket."""
+    """Gère une commande reçue par WebSocket — mode agent conversationnel."""
     try:
-        # Progress: scanning
-        await broadcast({"type": "progress", "step": "analyzing", "message": "👁️ Scanning UI..."})
+        # Natural opening — the agent acknowledges the request
+        await broadcast({
+            "type": "narration",
+            "text": f"🧠 Let me understand the page and figure out how to do that..."
+        })
 
         screenshot = await phantom.screenshot_agent.page.screenshot(type="png")
         ui_state = await phantom.analyzer_agent.analyze_screenshot(screenshot)
 
         await broadcast({
-            "type": "progress",
-            "step": "analyzed",
-            "message": f"✅ {len(ui_state.elements)} elements detected",
+            "type": "context_update",
+            "context": ui_state.page_context,
+            "elements_count": len(ui_state.elements),
         })
 
-        # Progress: planning
-        await broadcast({"type": "progress", "step": "planning", "message": "🧠 Generating action plan..."})
-
+        # Generate plan silently — no robotic step listing
         plan = await phantom.action_agent.generate_plan(intent, ui_state)
 
-        await broadcast({
-            "type": "plan_generated",
-            "intent": intent,
-            "steps": [
-                {"action": s.action_type, "target": s.target_description}
-                for s in plan.steps
-            ],
-        })
-
+        # Send a natural description of what the agent will do
         if plan.steps:
+            await broadcast({
+                "type": "narration",
+                "text": f"👁️ I can see {len(ui_state.elements)} interactive elements. Working on it..."
+            })
+
             async def narrate(text):
                 payload = {"type": "narration", "text": text}
                 if phantom.accessibility_mode:
@@ -529,18 +527,34 @@ async def _handle_ws_command(intent: str):
 
             phantom.action_agent.set_narration_callback(narrate)
 
-            # Progress: executing
-            await broadcast({
-                "type": "progress",
-                "step": "executing",
-                "message": f"⚡ Executing {len(plan.steps)} step(s)...",
-            })
-
+            # Execute silently — the agent just acts
             results = await phantom.action_agent.execute_plan(plan, ui_state)
 
-            # Update final screenshot for frontend
+            # === THE KEY FEATURE: Post-execution result analysis ===
+            # Take a fresh screenshot of the result page and ask Gemini
+            # to read and summarize what's visible, like a human would
             final_screenshot = await phantom.screenshot_agent.page.screenshot(type="png")
             final_b64 = base64.b64encode(final_screenshot).decode("utf-8")
+
+            # Send the updated screenshot
+            await broadcast({
+                "type": "screenshot",
+                "image": f"data:image/png;base64,{final_b64}",
+            })
+
+            # Ask Gemini to summarize the results conversationally
+            result_summary = await _summarize_results(final_screenshot, intent)
+            if result_summary:
+                payload = {"type": "result_summary", "text": result_summary}
+                if phantom.accessibility_mode:
+                    audio_b64 = await generate_tts_audio(result_summary)
+                    if audio_b64:
+                        payload["audio"] = audio_b64
+                await broadcast(payload)
+
+            # Update UI state
+            final_state = await phantom.analyzer_agent.analyze_screenshot(final_screenshot)
+            phantom.current_ui_state = final_state
 
             await broadcast({
                 "type": "execution_complete",
@@ -548,15 +562,56 @@ async def _handle_ws_command(intent: str):
                 "steps_completed": sum(1 for r in results if r.success),
             })
 
-            # Send updated screenshot
-            await broadcast({
-                "type": "screenshot",
-                "image": f"data:image/png;base64,{final_b64}",
-            })
-
     except Exception as e:
         logger.error(f"❌ Erreur commande WS : {e}")
         await broadcast({"type": "error", "message": str(e)})
+
+
+async def _summarize_results(screenshot: bytes, user_intent: str) -> Optional[str]:
+    """Ask Gemini to read the current page and summarize what it sees
+    in a natural, conversational way — like a human assistant would."""
+    try:
+        from agents.gemini_utils import get_gemini_client
+        from google.genai import types
+
+        client = get_gemini_client()
+        b64_img = base64.b64encode(screenshot).decode("utf-8")
+
+        prompt = f"""You are Phantom, a friendly AI assistant navigating the web for a user.
+The user asked: "{user_intent}"
+
+Look at this screenshot of the current page state AFTER I performed actions.
+Describe what you see in a natural, conversational way as if you were a helpful friend.
+
+RULES:
+- Be concise but informative (2-4 sentences max)
+- If there are results (flights, search results, listings, products), mention the top 2-3 options with key details (price, time, name)
+- If the page shows an error or nothing changed, say so honestly
+- Speak directly to the user: "I found...", "Here's what I see...", "The page shows..."
+- Do NOT mention technical details (screenshots, steps, elements)
+- Do NOT say "I executed 3 steps" — just describe what happened naturally
+- Use a friendly, helpful tone
+
+Example good responses:
+- "I found 3 flights from Paris to Dubai. The cheapest is with Emirates at $420, departing at 2:15 PM. Air France also has one at $510 at 6:00 PM."
+- "Here are the directions — it's about 25 minutes by car from Manhattan to JFK. The fastest route is via I-278."
+- "I searched for that and here are the top results. The first article is from Reuters about the latest speech."
+"""
+
+        response = await asyncio.to_thread(
+            client.models.generate_content,
+            model=settings.gemini_model,
+            contents=[
+                types.Content(parts=[
+                    types.Part.from_text(text=prompt),
+                    types.Part.from_bytes(data=screenshot, mime_type="image/png"),
+                ])
+            ],
+        )
+        return response.text.strip() if response.text else None
+    except Exception as e:
+        logger.error(f"❌ Error summarizing results: {e}")
+        return None
 
 
 async def broadcast(message: dict):

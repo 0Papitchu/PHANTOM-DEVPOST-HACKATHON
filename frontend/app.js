@@ -208,17 +208,31 @@ function handleWsMessage(msg) {
             }
             break;
 
+        case 'context_update':
+            addLog('👁️', `Page context: ${msg.context}`, 'narration');
+            break;
+
+        case 'result_summary':
+            // The key feature — conversational result presentation
+            addLog('💬', msg.text, 'result');
+            if (msg.audio) {
+                try {
+                    const audio = new Audio("data:audio/mp3;base64," + msg.audio);
+                    audio.play();
+                } catch (e) {
+                    speak(msg.text);
+                }
+            } else {
+                speak(msg.text);
+            }
+            break;
+
         case 'plan_generated':
-            addLog('🧠', `Plan: ${msg.steps.length} steps for "${msg.intent}"`, 'action');
-            msg.steps.forEach((s, i) => {
-                addLog('📋', `${i + 1}. [${s.action}] ${s.target}`, 'narration');
-            });
+            // Simplified — no step-by-step listing, just a natural summary
+            addLog('🧠', `Working on: "${msg.intent}"`, 'action');
             break;
 
         case 'execution_complete':
-            const emoji = msg.success ? '✅' : '⚠️';
-            addLog(emoji, `Done — ${msg.steps_completed} steps completed`, msg.success ? 'success' : 'error');
-            // Refresh screenshot
             refreshScreenshot();
             break;
 
