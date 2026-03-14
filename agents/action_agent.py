@@ -277,21 +277,22 @@ class ActionAgent:
             action_desc = await self._perform_action(step, target_element)
 
             # 3. Attendre que l'UI réagisse
-            await asyncio.sleep(0.8)
+            await asyncio.sleep(0.5)
 
-            # 4. Re-capturer et analyser le résultat
-            screenshot = await self.page.screenshot(type="png")
-            new_state, changes = await self.analyzer.analyze_and_track(screenshot)
+            # Optimisation: Ne pas refaire d'analyse visuelle complète après chaque étape intermédiaire
+            # Cela réduit considérablement la latence et évite l'erreur 429 RESOURCE_EXHAUSTED
+            # Le plan a déjà été généré avec les coordonnées initiales.
+            # L'API `execute_command` fera une analyse finale à la fin du plan.
 
-            # 5. Narration du résultat
-            narration = self._describe_result(step, changes)
+            # 5. Narration du résultat immédiat
+            narration = f"J'ai effectué {step.action_type} sur '{step.target_description}'."
 
             return StepResult(
                 step_index=step_index,
                 success=True,
                 action_performed=action_desc,
-                ui_changes=changes,
-                new_state=new_state,
+                ui_changes=[], # Skipped for speed
+                new_state=ui_state, # Keep previous state to avoid redundant API calls
                 narration=narration,
             )
 
