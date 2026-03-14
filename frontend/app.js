@@ -18,8 +18,8 @@ let currentElements = [];
 // ── DOM References ──────────────────────────────────────────
 const urlInput = document.getElementById('urlInput');
 const startBtn = document.getElementById('startBtn');
-const stopBtn = document.getElementById('stopBtn');
 const statusBadge = document.getElementById('statusBadge');
+const statusDot = document.getElementById('statusDot');
 const statusText = document.getElementById('statusText');
 const screenshotImg = document.getElementById('screenshotImg');
 const placeholder = document.getElementById('placeholder');
@@ -30,9 +30,7 @@ const commandInput = document.getElementById('commandInput');
 const micBtn = document.getElementById('micBtn');
 const loadingOverlay = document.getElementById('loadingOverlay');
 const loadingText = document.getElementById('loadingText');
-const scanLine = document.getElementById('scanLine');
-const elementCountBadge = document.getElementById('elementCount');
-// stopBtn is now the same as startBtn (toggle pattern)
+const elementCountBadge = document.getElementById('elementCountBadge');
 
 // ── Session Management ──────────────────────────────────────
 
@@ -40,9 +38,9 @@ async function startSession() {
     const url = urlInput.value.trim() || 'https://www.google.com';
     urlInput.value = url;
 
-    addLog('🚀', `Starting session — navigating to ${url}...`, 'narration');
+    addLog('🚀', `Starting session — navigating to ${url}...`, 'agent');
     startBtn.disabled = true;
-    startBtn.textContent = '⏳ STARTING...';
+    updateStartBtn('⏳', 'STARTING...', true);
 
     // Show loading overlay with animated progress
     placeholder.style.display = 'none';
@@ -98,7 +96,6 @@ async function startSession() {
         // Stop phase cycling and hide loading
         clearInterval(phaseTimer);
         loadingOverlay.style.display = 'none';
-        scanLine.classList.add('active');
 
         // Update UI
         setStatus('online', 'LIVE');
@@ -126,11 +123,11 @@ async function startSession() {
 
     } catch (err) {
         clearInterval(phaseTimer);
-        addLog('❌', `Error: ${err.message}`, 'error');
+        addLog('❌', `Error: ${err.message}`, 'system');
         loadingOverlay.style.display = 'none';
         placeholder.style.display = 'flex';
         startBtn.disabled = false;
-        startBtn.textContent = '▶ START';
+        updateStartBtn('▶', 'START', false);
     }
 }
 
@@ -152,11 +149,11 @@ async function stopSession() {
 
     // Clear screenshot
     screenshotImg.style.display = 'none';
+    screenshotImg.classList.add('hidden');
     placeholder.style.display = 'flex';
     overlayContainer.innerHTML = '';
-    scanLine.classList.remove('active');
     loadingOverlay.style.display = 'none';
-    elementCountBadge.style.display = 'none';
+    if (elementCountBadge) elementCountBadge.classList.add('hidden');
 
     // Stop polling
     if (screenshotInterval) {
@@ -396,6 +393,7 @@ async function refreshScreenshot() {
 function displayScreenshot(dataUrl) {
     screenshotImg.src = dataUrl;
     screenshotImg.style.display = 'block';
+    screenshotImg.classList.remove('hidden');
     placeholder.style.display = 'none';
 }
 
@@ -407,8 +405,17 @@ function updateElements(elements) {
     renderElementsList(elements);
 
     // Update element count badge
-    elementCountBadge.textContent = elements.length;
-    elementCountBadge.style.display = elements.length > 0 ? 'inline-flex' : 'none';
+    const countSpan = document.getElementById('elementCount');
+    if (countSpan) countSpan.textContent = elements.length;
+    if (elementCountBadge) {
+        if (elements.length > 0) {
+            elementCountBadge.classList.remove('hidden');
+            elementCountBadge.classList.add('flex');
+        } else {
+            elementCountBadge.classList.add('hidden');
+            elementCountBadge.classList.remove('flex');
+        }
+    }
 }
 
 function renderOverlay(elements) {
@@ -789,19 +796,62 @@ function handleOptionClick(opt) {
 // ── Tab Switching ───────────────────────────────────────────
 
 function switchTab(tab) {
-    document.querySelectorAll('.panel-tab').forEach(t => t.classList.remove('active'));
-    document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
+    const tabActivity = document.getElementById('tabActivity');
+    const tabElements = document.getElementById('tabElements');
 
-    activityLog.classList.toggle('active', tab === 'activity');
-    activityLog.style.display = tab === 'activity' ? 'flex' : 'none';
-    elementsList.classList.toggle('active', tab === 'elements');
+    if (tab === 'activity') {
+        tabActivity.className = 'flex-1 bg-white border border-slate-200 text-bahama-blue-700 shadow-sm rounded-md px-4 py-2 text-sm font-medium transition-all flex items-center justify-center gap-2';
+        tabElements.className = 'flex-1 text-slate-500 hover:bg-slate-100 border border-transparent hover:border-slate-200 rounded-md px-4 py-2 text-sm font-medium transition-all flex items-center justify-center gap-2';
+        activityLog.style.display = 'flex';
+        elementsList.style.display = 'none';
+        elementsList.classList.add('hidden');
+        activityLog.classList.remove('hidden');
+    } else {
+        tabElements.className = 'flex-1 bg-white border border-slate-200 text-bahama-blue-700 shadow-sm rounded-md px-4 py-2 text-sm font-medium transition-all flex items-center justify-center gap-2';
+        tabActivity.className = 'flex-1 text-slate-500 hover:bg-slate-100 border border-transparent hover:border-slate-200 rounded-md px-4 py-2 text-sm font-medium transition-all flex items-center justify-center gap-2';
+        activityLog.style.display = 'none';
+        activityLog.classList.add('hidden');
+        elementsList.style.display = 'flex';
+        elementsList.classList.remove('hidden');
+    }
 }
 
 // ── Utilities ───────────────────────────────────────────────
 
+/**
+ * @description Update the status badge with Tailwind classes
+ * @param {string} status - 'online' or 'offline'
+ * @param {string} text - Status text to display
+ */
 function setStatus(status, text) {
-    statusBadge.className = `status-badge ${status}`;
     statusText.textContent = text;
+    if (status === 'online') {
+        statusBadge.className = 'flex items-center px-3 py-1 rounded-full border bg-green-50 border-green-200 text-green-600 shadow-sm';
+        if (statusDot) { statusDot.className = 'w-2 h-2 rounded-full bg-green-500 mr-2 animate-pulse'; }
+    } else {
+        statusBadge.className = 'flex items-center px-3 py-1 rounded-full border bg-slate-50 border-slate-200 text-slate-500 shadow-sm';
+        if (statusDot) { statusDot.className = 'w-2 h-2 rounded-full bg-slate-400 mr-2'; }
+    }
+}
+
+/**
+ * @description Helper to update the start/stop button consistently
+ * @param {string} icon - Icon character
+ * @param {string} label - Button label
+ * @param {boolean} isActive - Whether the session is active (STOP state)
+ */
+function updateStartBtn(icon, label, isActive) {
+    const startIcon = document.getElementById('startIcon');
+    const startTextEl = document.getElementById('startText');
+    if (startIcon) startIcon.textContent = icon;
+    if (startTextEl) startTextEl.textContent = label;
+    if (isActive) {
+        startBtn.classList.remove('text-slate-600', 'bg-white', 'border-slate-200');
+        startBtn.classList.add('text-red-600', 'bg-red-50', 'border-red-200');
+    } else {
+        startBtn.classList.remove('text-red-600', 'bg-red-50', 'border-red-200');
+        startBtn.classList.add('text-slate-600', 'bg-white', 'border-slate-200');
+    }
 }
 
 function escapeHtml(text) {
