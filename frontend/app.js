@@ -43,11 +43,37 @@ async function startSession() {
     startBtn.disabled = true;
     startBtn.textContent = '⏳ STARTING...';
 
-    // Show loading overlay
+    // Show loading overlay with animated progress
     placeholder.style.display = 'none';
     loadingOverlay.style.display = 'flex';
-    loadingText.textContent = 'Launching browser...';
+    loadingText.textContent = 'Launching Phantom...';
+    // Reset progress bar animation
+    const progressBar = document.getElementById('loadingProgressBar');
+    if (progressBar) {
+        progressBar.style.animation = 'none';
+        progressBar.offsetHeight; // Force reflow
+        progressBar.style.animation = 'progress-sweep 12s ease-in-out forwards';
+    }
     setStatus('offline', 'STARTING...');
+
+    // Cycle substatus messages for visual feedback
+    const substatus = document.getElementById('loadingSubstatus');
+    const phases = [
+        'Initializing headless Chromium',
+        'Configuring viewport & network',
+        'Navigating to target URL',
+        'Waiting for page to render',
+        'Scanning UI elements with Gemini Vision',
+        'Building visual element map',
+    ];
+    let phaseIdx = 0;
+    const phaseTimer = setInterval(() => {
+        if (substatus && phaseIdx < phases.length) {
+            substatus.textContent = phases[phaseIdx++];
+            loadingText.textContent = phaseIdx <= 2 ? 'Launching Phantom...' :
+                phaseIdx <= 4 ? 'Loading page...' : 'Analyzing UI...';
+        }
+    }, 2500);
 
     try {
         const res = await fetch(`${API_BASE}/api/session/start`, {
@@ -68,7 +94,8 @@ async function startSession() {
         const data = await res.json();
         isSessionActive = true;
 
-        // Hide loading, show scan line
+        // Stop phase cycling and hide loading
+        clearInterval(phaseTimer);
         loadingOverlay.style.display = 'none';
         scanLine.classList.add('active');
 
@@ -92,6 +119,7 @@ async function startSession() {
         startScreenshotPolling();
 
     } catch (err) {
+        clearInterval(phaseTimer);
         addLog('❌', `Error: ${err.message}`, 'error');
         loadingOverlay.style.display = 'none';
         placeholder.style.display = 'flex';
