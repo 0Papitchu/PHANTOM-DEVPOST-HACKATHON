@@ -18,6 +18,7 @@ from typing import Optional
 from playwright.async_api import Page
 
 from agents.analyzer_agent import AnalyzerAgent, UIState, UIElement, UIChange
+from agents.mcp_client import ChromeMCPClient
 from config.settings import settings
 
 logger = logging.getLogger("phantom.action")
@@ -151,9 +152,10 @@ class ActionAgent:
     5. Rapporte en temps réel (narration vocale)
     """
 
-    def __init__(self, page: Page, analyzer: AnalyzerAgent):
+    def __init__(self, page: Page, analyzer: AnalyzerAgent, mcp_client: Optional[ChromeMCPClient] = None):
         self.page = page
         self.analyzer = analyzer
+        self.mcp_client = mcp_client
         self._paused = False
         self._current_plan: Optional[ActionPlan] = None
         self._step_results: list[StepResult] = []
@@ -197,17 +199,95 @@ class ActionAgent:
         from agents.gemini_utils import gemini_generate_with_retry
         from google.genai import types
 
+        tools_config = None
+        if self.mcp_client:
+            try:
+                mcp_tools = await self.mcp_client.get_available_tools()
+                function_declarations = []
+                for t in mcp_tools:
+                    # Map MCP tool schema → Gemini function declaration
+                    func = types.FunctionDeclaration(
+                        name=t.name,
+                        description=getattr(t, "description", "") or "",
+                        parameters=getattr(t, "inputSchema", {}) or {},
+                    )
+                    function_declarations.append(func)
+
+                if function_declarations:
+                    tools_config = [{"function_declarations": function_declarations}]
+                    logger.info(
+                        f"🧩 Exposing {len(function_declarations)} Chrome DevTools MCP "
+                        f"tools to Gemini planner."
+                    )
+            except Exception as e:
+                logger.warning(f"⚠️ Unable to load MCP tools, continuing without them: {e}")
+
         response = await gemini_generate_with_retry(
             contents=[prompt],
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
                 temperature=0.2,
+                tools=tools_config,
             ),
         )
 
         if not response:
             logger.error("❌ Plan generation failed — Gemini unavailable")
             return ActionPlan(intent=intent, steps=[])
+
+        # If Gemini chose to call a DevTools MCP function instead of returning a plan,
+        # execute the tool and feed the result back into a second planning pass.
+        def _extract_function_call(resp: object):
+            try:
+                for cand in getattr(resp, "candidates", []) or []:
+                    content = getattr(cand, "content", None)
+                    parts = getattr(content, "parts", None) or []
+                    for part in parts:
+                        fc = getattr(part, "function_call", None)
+                        if fc:
+                            return fc
+            except Exception:
+                return None
+            return None
+
+        function_call = _extract_function_call(response) if self.mcp_client else None
+
+        if function_call and self.mcp_client:
+            try:
+                tool_name = getattr(function_call, "name", "")
+                tool_args = getattr(function_call, "args", {}) or {}
+                logger.info(f"🔧 Gemini requested DevTools tool call: {tool_name}")
+                mcp_result = await self.mcp_client.call_tool(tool_name, tool_args)
+
+                # Second pass: provide DevTools result as additional context and
+                # force Gemini to output the final JSON ActionStep array.
+                followup_prompt = PLANNER_PROMPT.format(
+                    intent=intent,
+                    ui_state=ui_state.to_json(),
+                ) + (
+                    "\n\nYou also have access to Chrome DevTools data.\n"
+                    f"You previously called the DevTools tool `{tool_name}` with arguments:\n"
+                    f"{json.dumps(tool_args, indent=2, ensure_ascii=False)}\n\n"
+                    "Here is the JSON result returned by that tool:\n"
+                    f"{json.dumps(mcp_result, indent=2, ensure_ascii=False, default=str)}\n\n"
+                    "Using EVERYTHING above (UIState + DevTools result), generate the final "
+                    "JSON array of action steps exactly in the format specified earlier.\n"
+                    "Return ONLY a valid JSON array, no markdown, no comments, no extra keys."
+                )
+
+                response = await gemini_generate_with_retry(
+                    contents=[followup_prompt],
+                    config=types.GenerateContentConfig(
+                        response_mime_type="application/json",
+                        temperature=0.2,
+                    ),
+                )
+                if not response:
+                    logger.error("❌ Second-pass plan generation failed after MCP tool call")
+                    return ActionPlan(intent=intent, steps=[])
+            except Exception as e:
+                logger.error(f"❌ Error handling MCP function call: {e}")
+                # Fall back to trying to parse whatever JSON we have (if any)
 
         try:
             steps_data = json.loads(response.text)

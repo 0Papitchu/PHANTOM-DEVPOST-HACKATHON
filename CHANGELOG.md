@@ -1,5 +1,20 @@
 # CHANGELOG — Phantom UI Navigator
 
+## [v0.10.0] — 2026-03-15 — GPT-AGENT
+
+### Ajouté
+- **Chrome DevTools MCP (optionnel)** — Intégration d'un client MCP Python (`ChromeMCPClient`) qui parle au serveur `@puppeteer/chrome-devtools-mcp` via stdio. Permet à Gemini d'appeler des outils DevTools (DOM inspection, console, network) quand nécessaire pour mieux comprendre la page.
+
+### Modifié
+- `agents/screenshot_agent.py` — Lancement de Chromium avec `--remote-debugging-port=9222` pour exposer le DevTools Protocol tout en gardant les actions Playwright basées sur les coordonnées.
+- `agents/action_agent.py` — Le planner expose désormais les outils Chrome MCP comme `FunctionDeclaration` à Gemini. Si le modèle choisit un `function_call` (ex: `puppeteer_execute`), l'agent exécute l'outil via MCP puis relance une planification finale basée sur le résultat DevTools + vision.
+- `api/main.py` — Initialisation d'un `ChromeMCPClient` global et injection dans l'`ActionAgent` lors de la création de session (y compris pour l'auto-navigation).
+- `requirements.txt` — Ajout de la dépendance Python `mcp`.
+
+### ⚠️ Breaking Changes
+- Expansion contrôlée du principe **Zero DOM Access** : les interactions restent exécutées par coordonnées uniquement, mais Gemini peut désormais, de façon optionnelle, consulter DevTools (DOM/console/network) comme source de vérité supplémentaire pour planifier les actions. Cette capacité doit être considérée comme un "fallback structurel" pour le hackathon, pas comme le chemin principal.
+
+
 ## [v0.9.0] — 2026-03-14 — ANTIGRAVITY
 
 ### Corrigé

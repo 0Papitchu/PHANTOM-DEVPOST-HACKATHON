@@ -810,6 +810,17 @@ function addLog(icon, text, type = 'narration', options = null) {
     }
 }
 
+function handleOptionClick(opt) {
+    const optionText = opt.title || opt;
+    addLog('👆', `Selected: ${optionText}`, 'user');
+
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'option_select', option: optionText }));
+    } else {
+        // Fallback: treat as a regular command
+        commandInput.value = optionText;
+        sendCommand();
+    }
 }
 
 // ── Tab Switching ───────────────────────────────────────────

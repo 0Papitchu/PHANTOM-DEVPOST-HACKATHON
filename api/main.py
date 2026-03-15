@@ -25,6 +25,7 @@ from config.settings import settings
 from agents.screenshot_agent import ScreenshotAgent
 from agents.analyzer_agent import AnalyzerAgent, UIState
 from agents.action_agent import ActionAgent, ActionPlan
+from agents.mcp_client import ChromeMCPClient
 
 # ── Logging ──────────────────────────────────────────────────
 logging.basicConfig(
@@ -49,6 +50,7 @@ class PhantomState:
         self.accessibility_mode: bool = False  # Navigator for All pivot
         self.adk_agents: Optional[dict] = None  # ADK framework agents
         self.connected_clients: list[WebSocket] = []
+        self.mcp_client: Optional[ChromeMCPClient] = None
 
 phantom = PhantomState()
 
@@ -108,6 +110,10 @@ async def lifespan(app: FastAPI):
     # Initialiser l'Analyzer Agent (toujours prêt)
     phantom.analyzer_agent = AnalyzerAgent()
     logger.info("✅ Analyzer Agent initialisé")
+
+    # Lazy-initialized Chrome DevTools MCP client (used by ActionAgent when available)
+    phantom.mcp_client = ChromeMCPClient()
+    logger.info("✅ Chrome DevTools MCP client initialisé (DevTools access is optional)")
 
     yield
 
@@ -208,10 +214,11 @@ async def start_session(req: StartSessionRequest):
             screenshot_bytes
         )
 
-        # Initialiser l'Action Agent
+        # Initialiser l'Action Agent (with optional DevTools MCP client)
         phantom.action_agent = ActionAgent(
             page=phantom.screenshot_agent.page,
             analyzer=phantom.analyzer_agent,
+            mcp_client=phantom.mcp_client,
         )
 
         # Broadcast aux WebSocket clients
@@ -534,6 +541,7 @@ async def _auto_navigate_and_execute(intent: str):
         phantom.action_agent = ActionAgent(
             page=phantom.screenshot_agent.page,
             analyzer=phantom.analyzer_agent,
+            mcp_client=phantom.mcp_client,
         )
         phantom.is_running = True
 

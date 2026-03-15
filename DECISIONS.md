@@ -109,3 +109,17 @@
 - Accessibility tree → dépend de l'OS, pas universel
 
 **Impact:** Architecture complète du projet
+
+---
+
+## [2026-03-15] — Optional Chrome DevTools MCP Fallback
+
+**Contexte:** Le pitch central du projet est "Zero DOM access" — Phantom agit comme un humain qui clique par coordonnées sans toucher au DOM. Cependant, certains parcours réels (SPAs complexes, iframes, menus cachés) sont difficiles à comprendre uniquement via vision, surtout sous contrainte de temps de démo hackathon.
+
+**Décision:** Ajouter une capacité *optionnelle* de lecture DevTools via un serveur MCP Chrome. Gemini peut, pendant la phase de planification, appeler des outils MCP (ex: `puppeteer_execute`, `puppeteer_click`) pour inspecter le DOM ou l'état réseau, mais l'exécution finale dans Phantom reste strictement par coordonnées Playwright. DevTools est utilisé comme **fallback de compréhension**, pas comme chemin primaire d'action.
+
+**Alternatives rejetées:**
+- Basculer l'exécution complète vers des sélecteurs CSS/XPath → trahit trop le concept "humain sur l'écran", risque de casser sur les apps legacy / desktop.
+- Ne pas ajouter DevTools du tout → risque d'échecs silencieux sur certaines pages complexes pendant la démo, et impossibilité pour Gemini de vérifier sa compréhension via une source structurelle.
+
+**Impact:** `agents/screenshot_agent.py`, `agents/mcp_client.py`, `agents/action_agent.py`, `api/main.py`, `requirements.txt`, documentation (README/ARCHITECTURE/CHANGELOG)

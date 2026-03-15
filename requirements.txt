@@ -29,6 +29,7 @@ pydantic
 pydantic-settings
 httpx
 websockets
+mcp
 
 # === Dev / Test ===
 pytest

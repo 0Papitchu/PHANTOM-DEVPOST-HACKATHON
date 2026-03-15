@@ -71,12 +71,16 @@ class ScreenshotAgent:
         logger.info(f"🌐 URL cible : {target_url}")
 
         pw = await async_playwright().start()
+        # Expose Chrome DevTools Protocol for the MCP server via remote debugging.
+        # This keeps our primary interaction model coordinate-based while allowing
+        # the DevTools MCP to introspect DOM/console/network when explicitly invoked.
         self.browser = await pw.chromium.launch(
             headless=settings.browser_headless,
             args=[
                 "--no-sandbox",
                 "--disable-blink-features=AutomationControlled",
                 "--disable-dev-shm-usage",
+                "--remote-debugging-port=9222",
             ],
         )
         # Stealth context — realistic browser fingerprint to avoid bot detection

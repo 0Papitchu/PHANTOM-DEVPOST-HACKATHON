@@ -1,8 +1,7 @@
 # TASKS — Phantom UI Navigator
 
 ## EN COURS
-
-[ANTIGRAVITY] [2026-03-14] — Deploying v0.9.0 to Cloud Run — fichiers touchés : agents/action_agent.py, api/main.py, frontend/app.js
+- [GPT-AGENT] [2026-03-15] — Chrome DevTools MCP integration (optional DevTools fallback for planner) — fichiers touchés : agents/screenshot_agent.py, agents/mcp_client.py, agents/action_agent.py, api/main.py, requirements.txt
 
 ## TERMINÉ
 
