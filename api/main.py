@@ -729,11 +729,37 @@ async def _handle_ws_command(intent: str):
             "image": f"data:image/png;base64,{final_b64}",
         })
 
+        # CAPTCHA detection — check page title/URL for common CAPTCHA indicators
+        try:
+            page_title = await phantom.screenshot_agent.page.title()
+            page_url = phantom.screenshot_agent.page.url
+            captcha_keywords = ["captcha", "verify", "robot", "unusual traffic", "are you human", "recaptcha", "blocked"]
+            is_captcha = any(kw in page_title.lower() for kw in captcha_keywords) or \
+                         any(kw in page_url.lower() for kw in captcha_keywords)
+            if is_captcha:
+                if phantom.action_agent:
+                    phantom.action_agent.pause()
+                await broadcast({
+                    "type": "captcha_detected",
+                    "text": "🔒 CAPTCHA detected! Please take control and solve it manually, then resume.",
+                })
+                logger.warning("⚠️ CAPTCHA detected — agent paused, waiting for user")
+        except Exception:
+            pass
+
         # Ask Gemini to summarize AND generate interactive options — ALWAYS
         summary_data = await _summarize_results(final_screenshot, intent)
         if summary_data:
             summary_text = summary_data.get("text", "") if isinstance(summary_data, dict) else str(summary_data)
             summary_options = summary_data.get("options", []) if isinstance(summary_data, dict) else []
+            # Gemini-detected CAPTCHA in screenshot
+            if isinstance(summary_data, dict) and summary_data.get("captcha"):
+                if phantom.action_agent:
+                    phantom.action_agent.pause()
+                await broadcast({
+                    "type": "captcha_detected",
+                    "text": "🔒 CAPTCHA detected! Please take control and solve it manually, then resume.",
+                })
             payload = {
                 "type": "result_summary",
                 "text": summary_text,
@@ -854,6 +880,8 @@ async def _summarize_results(screenshot: bytes, user_intent: str) -> Optional[di
 The user asked: "{user_intent}"
 
 Look at this screenshot of the current page state AFTER I performed actions.
+
+IMPORTANT: If you see a CAPTCHA, bot-verification, or "unusual traffic" challenge on screen, set "text" to explain this clearly and set "captcha": true in the JSON. Otherwise omit the captcha key.
 
 Return a JSON object with:
 1. "text": A natural, conversational summary (2-4 sentences). Speak like a helpful friend: "I found...", "Here's what I see..."

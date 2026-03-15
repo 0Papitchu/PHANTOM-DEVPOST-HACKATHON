@@ -274,6 +274,19 @@ function handleWsMessage(msg) {
             }
             break;
 
+        case 'captcha_detected':
+            addLog('🔒', msg.text || 'CAPTCHA detected — take control to solve it.', 'system');
+            // Auto-activate manual control mode so user can click directly
+            if (!manualControl) {
+                manualControl = true;
+                updateControlButton(true);
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ type: 'manual_control', enabled: true }));
+                }
+            }
+            speak('CAPTCHA detected. Please solve it manually, then resume the agent.');
+            break;
+
         case 'paused':
             addLog('⏸️', 'Execution paused', 'narration');
             updateControlButton(true);
