@@ -10,6 +10,7 @@ ZÉRO DOM ACCESS — on clique par coordonnées visuelles uniquement.
 import asyncio
 import json
 import logging
+import sys
 from dataclasses import dataclass, asdict
 from enum import Enum
 from typing import Optional
@@ -398,9 +399,19 @@ class ActionAgent:
             case "type":
                 # Cliquer d'abord pour focus
                 await self.page.mouse.click(element.center_x, element.center_y)
-                await asyncio.sleep(0.5) # Plus long pour les SPAs comme Google Flights
+                await asyncio.sleep(0.3)
+                # Triple-click to select any existing text in the field
+                await self.page.mouse.click(element.center_x, element.center_y, click_count=3)
+                await asyncio.sleep(0.2)
+                # Select all as fallback (Ctrl+A / Cmd+A) then delete
+                modifier = "Meta" if sys.platform == "darwin" else "Control"
+                await self.page.keyboard.press(f"{modifier}+a")
+                await asyncio.sleep(0.1)
+                await self.page.keyboard.press("Backspace")
+                await asyncio.sleep(0.3)
+                # Now type the new value into the cleared field
                 await self.page.keyboard.type(step.value or "", delay=50)
-                await asyncio.sleep(0.5) 
+                await asyncio.sleep(0.5)
                 return f"Type '{step.value}' @ ({element.center_x}, {element.center_y})"
 
             case "key_press":
