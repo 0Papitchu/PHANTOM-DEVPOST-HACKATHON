@@ -1,5 +1,17 @@
 # CHANGELOG — Phantom UI Navigator
 
+## [v0.10.1] — 2026-03-15
+
+### Ajouté
+- **Take Control (co-pilot mode)** — Bouton "TAKE CONTROL" dans le header pour reprendre la main sur la page (CAPTCHA, vérifications humaines). L’agent est mis en pause ; les clics sur le viewport sont envoyés en coordonnées normalisées (`user_click`) et rejoués dans le navigateur. Cliquer à nouveau pour rendre la main à Phantom.
+
+### Modifié
+- `frontend/index.html` — Bouton Take Control (visible quand session active).
+- `frontend/app.js` — État `manualControl`, `toggleManualControl()`, click-through sur l’overlay en mode contrôle, sync sur `paused`/`resumed`.
+- `api/main.py` — Handlers WebSocket `manual_control` (pause/resume agent) et `user_click` (click viewport normalisé → Playwright).
+
+---
+
 ## [v0.10.0] — 2026-03-15 — GPT-AGENT
 
 ### Ajouté

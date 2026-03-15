@@ -491,6 +491,30 @@ async def websocket_endpoint(ws: WebSocket):
                         phantom.action_agent.resume()
                         await ws.send_json({"type": "resumed"})
 
+                case "manual_control":
+                    # User toggles direct control of the page (for CAPTCHAs, etc.)
+                    enabled = message.get("enabled", False)
+                    if phantom.action_agent:
+                        if enabled:
+                            phantom.action_agent.pause()
+                            await ws.send_json({"type": "paused"})
+                        else:
+                            phantom.action_agent.resume()
+                            await ws.send_json({"type": "resumed"})
+
+                case "user_click":
+                    # User-driven click based on normalized viewport coordinates
+                    if phantom.is_running and phantom.screenshot_agent:
+                        try:
+                            x_norm = float(message.get("x_norm", 0))
+                            y_norm = float(message.get("y_norm", 0))
+                        except (TypeError, ValueError):
+                            x_norm, y_norm = 0.0, 0.0
+                        if 0.0 <= x_norm <= 1.0 and 0.0 <= y_norm <= 1.0:
+                            x = x_norm * settings.browser_viewport_width
+                            y = y_norm * settings.browser_viewport_height
+                            await phantom.screenshot_agent.page.mouse.click(x, y)
+
                 case "screenshot":
                     # Demande un screenshot frais
                     if phantom.is_running:

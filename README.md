@@ -103,6 +103,23 @@ phantom-ui-navigator/
 | `POST` | `/api/navigate` | Navigate to URL |
 | `WS` | `/ws` | Real-time bidirectional |
 
+## 🎮 Take Control (co-pilot mode)
+
+When a CAPTCHA or human-only step blocks the agent, use **Take Control** to drive the page yourself:
+
+1. Click **TAKE CONTROL** in the header (session must be active).
+2. Click directly on the screenshot where you want to interact (e.g. the "I'm not a robot" box). Clicks are sent as normalized coordinates to the headless browser.
+3. Click **USER CONTROL** again to release; Phantom resumes and you can give a new voice/text command.
+
+WebSocket messages: `manual_control` (toggle), `user_click` (x_norm, y_norm).
+
+## 🚀 Deploy to Google Cloud Run
+
+```bash
+./scripts/deploy-cloudrun.sh [PROJECT_ID]
+# Or: gcloud builds submit --tag gcr.io/PROJECT_ID/phantom-ui . && gcloud run deploy phantom-ui --image gcr.io/PROJECT_ID/phantom-ui --region us-central1 --allow-unauthenticated
+```
+
 ## 🏆 Hackathon
 
 **Gemini Live Agent Challenge** — Devpost

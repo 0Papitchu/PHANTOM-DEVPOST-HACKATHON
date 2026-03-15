@@ -14,6 +14,7 @@ let isRecording = false;
 let recognition = null;
 let screenshotInterval = null;
 let currentElements = [];
+let manualControl = false;
 
 // ── DOM References ──────────────────────────────────────────
 const urlInput = document.getElementById('urlInput');
@@ -31,6 +32,9 @@ const micBtn = document.getElementById('micBtn');
 const loadingOverlay = document.getElementById('loadingOverlay');
 const loadingText = document.getElementById('loadingText');
 const elementCountBadge = document.getElementById('elementCountBadge');
+const controlBtn = document.getElementById('controlBtn');
+const controlDot = document.getElementById('controlDot');
+const controlText = document.getElementById('controlText');
 
 // ── Session Management ──────────────────────────────────────
 
@@ -181,6 +185,10 @@ function connectWebSocket() {
 
     ws.onopen = () => {
         console.log('🔌 WebSocket connected');
+        // Ensure manual control state is synced when reconnecting
+        if (manualControl && ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'manual_control', enabled: true }));
+        }
     };
 
     ws.onmessage = (event) => {
@@ -268,10 +276,12 @@ function handleWsMessage(msg) {
 
         case 'paused':
             addLog('⏸️', 'Execution paused', 'narration');
+            updateControlButton(true);
             break;
 
         case 'resumed':
             addLog('▶️', 'Execution resumed', 'narration');
+            updateControlButton(false);
             break;
 
         case 'auto_navigate':
@@ -403,6 +413,34 @@ function displayScreenshot(dataUrl) {
     placeholder.style.display = 'none';
 }
 
+// ── Manual Control (Take Control Mode) ──────────────────────
+
+function updateControlButton(enabled) {
+    if (!controlBtn) return;
+    manualControl = enabled;
+    if (enabled) {
+        controlBtn.classList.remove('text-slate-600', 'bg-slate-50', 'border-slate-200');
+        controlBtn.classList.add('text-emerald-700', 'bg-emerald-50', 'border-emerald-200');
+        if (controlDot) controlDot.className = 'w-1.5 h-1.5 rounded-full bg-emerald-500';
+        if (controlText) controlText.textContent = 'USER CONTROL';
+    } else {
+        controlBtn.classList.remove('text-emerald-700', 'bg-emerald-50', 'border-emerald-200');
+        controlBtn.classList.add('text-slate-600', 'bg-slate-50', 'border-slate-200');
+        if (controlDot) controlDot.className = 'w-1.5 h-1.5 rounded-full bg-slate-400';
+        if (controlText) controlText.textContent = 'TAKE CONTROL';
+    }
+}
+
+function toggleManualControl() {
+    if (!ws || ws.readyState !== WebSocket.OPEN || !isSessionActive) {
+        return;
+    }
+    const next = !manualControl;
+    ws.send(JSON.stringify({ type: 'manual_control', enabled: next }));
+    updateControlButton(next);
+    addLog(next ? '🎮' : '🤖', next ? 'You are now controlling the page.' : 'Phantom has taken back control.', 'system');
+}
+
 // ── Bounding Box Overlay ────────────────────────────────────
 
 function updateElements(elements) {
@@ -474,6 +512,19 @@ function renderOverlay(elements) {
 
         overlayContainer.appendChild(box);
     });
+
+    // Enable direct click-through in manual control mode
+    overlayContainer.onclick = (event) => {
+        if (!manualControl || !ws || ws.readyState !== WebSocket.OPEN) return;
+        if (!screenshotImg) return;
+        const rect = screenshotImg.getBoundingClientRect();
+        if (!rect.width || !rect.height) return;
+        const x = (event.clientX - rect.left) / rect.width;
+        const y = (event.clientY - rect.top) / rect.height;
+        if (x < 0 || x > 1 || y < 0 || y > 1) return;
+        ws.send(JSON.stringify({ type: 'user_click', x_norm: x, y_norm: y }));
+        addLog('🖱️', `Manual click at (${(x * 100).toFixed(1)}%, ${(y * 100).toFixed(1)}%)`, 'action');
+    };
 }
 
 function getElementClass(type) {
