@@ -442,8 +442,22 @@ class ActionAgent:
                     new_state=new_state,
                     narration=narration,
                 )
+            elif step.action_type == "key_press" and (step.value or "Enter") in ("Enter", "Tab", "Return"):
+                # Enter/Tab often triggers navigation or autocomplete selection — re-scan
+                await asyncio.sleep(1.5)
+                screenshot = await self.page.screenshot(type="png")
+                new_state = await self.analyzer.analyze_screenshot(screenshot)
+                narration = f"J'ai effectué {step.action_type} ({step.value})."
+                return StepResult(
+                    step_index=step_index,
+                    success=True,
+                    action_performed=action_desc,
+                    ui_changes=[],
+                    new_state=new_state,
+                    narration=narration,
+                )
             else:
-                # Scroll, key_press → pas besoin de re-scanner
+                # Scroll, ArrowDown, other key_press → short wait, no re-scan
                 await asyncio.sleep(0.5)
                 narration = f"J'ai effectué {step.action_type} sur '{step.target_description}'."
                 return StepResult(
@@ -491,25 +505,33 @@ class ActionAgent:
                 return f"Hover @ ({element.center_x}, {element.center_y})"
 
             case "type":
-                # Cliquer d'abord pour focus
+                # Escape first — dismiss any open autocomplete/dropdown
+                await self.page.keyboard.press("Escape")
+                await asyncio.sleep(0.15)
+                # Click to focus the field
                 await self.page.mouse.click(element.center_x, element.center_y)
                 await asyncio.sleep(0.3)
-                # Triple-click to select any existing text in the field
+                # Triple-click to select all existing text in the field
                 await self.page.mouse.click(element.center_x, element.center_y, click_count=3)
                 await asyncio.sleep(0.2)
-                # Select all as fallback (Ctrl+A / Cmd+A) then delete
+                # Ctrl+A then Delete — belt-and-suspenders clear for React inputs
                 modifier = "Meta" if sys.platform == "darwin" else "Control"
                 await self.page.keyboard.press(f"{modifier}+a")
                 await asyncio.sleep(0.1)
+                await self.page.keyboard.press("Delete")
+                await asyncio.sleep(0.1)
                 await self.page.keyboard.press("Backspace")
                 await asyncio.sleep(0.3)
-                # Now type the new value into the cleared field
-                await self.page.keyboard.type(step.value or "", delay=50)
+                # Type the new value character by character (triggers onChange in React)
+                await self.page.keyboard.type(step.value or "", delay=60)
                 await asyncio.sleep(0.5)
                 return f"Type '{step.value}' @ ({element.center_x}, {element.center_y})"
 
             case "key_press":
                 await self.page.keyboard.press(step.value or "Enter")
+                # After Enter/Tab, page state likely changed — wait for reaction
+                if (step.value or "Enter") in ("Enter", "Tab", "Return"):
+                    await asyncio.sleep(1.5)
                 return f"Key press: {step.value}"
 
             case "scroll_up":
