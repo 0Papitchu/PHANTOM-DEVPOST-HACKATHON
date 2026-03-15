@@ -82,10 +82,12 @@ PLANNER_PROMPT = """You are PHANTOM's Action Planner. Analyze the current UI and
 USER INTENT: {intent}
 CURRENT UI STATE: {ui_state}
 
+CRITICAL: target_description MUST be one of the EXACT "label" strings from the "elements" array in the JSON above. Copy the label verbatim. Do NOT invent labels like "Origin" or "Search button" if the JSON shows "Where from?" or "Search flights". If the user wants to set origin to Paris, use the label that identifies the origin field (e.g. "Where from?" or the current value like "Chicago, Illinois (City)").
+
 Generate a JSON array of action steps. Each step:
 {{
     "action_type": "click|type|scroll_up|scroll_down|wait|hover|key_press|double_click|right_click|select",
-    "target_description": "EXACT text label of the UI element as it appears on screen",
+    "target_description": "EXACT label from the elements array above — no other text",
     "value": "text to type, key name, or null",
     "expected_result": "what should change after this action",
     "fallback": "what to try if this fails",
@@ -96,17 +98,15 @@ Generate a JSON array of action steps. Each step:
 CRITICAL RULES FOR REAL SITES:
 
 1. GOOGLE FLIGHTS — Flight search form:
-   - Click the "Where from?" field (or "Origin" input)
-   - Wait 0.5s for it to focus  
-   - Type the departure city/airport (e.g. "Paris CDG")
-   - Wait 1s for autocomplete dropdown to appear
-   - Press "ArrowDown" then "Enter" to select the first suggestion OR click the first suggestion
-   - Then click "Where to?" field
-   - Type destination city (e.g. "Dubai")
-   - Wait 1s, then ArrowDown + Enter to select suggestion
-   - Click the Departure date field
-   - Type or click the date (format: e.g. "March 14")
-   - Click "Search" button
+   - Find in the elements list the field for departure (often labeled "Where from?" or showing a city like "Chicago"). Use that EXACT label in target_description.
+   - Step 1: click that origin field (exact label from JSON)
+   - Step 2: wait (value "0.5")
+   - Step 3: type the departure city from the user intent (e.g. "Paris" or "Los Angeles")
+   - Step 4: wait (value "1") for autocomplete
+   - Step 5: key_press value "ArrowDown" then step 6: key_press value "Enter" to select first suggestion
+   - Repeat for destination: find "Where to?" or destination field in elements, click it, type destination city, wait, ArrowDown + Enter
+   - Then click the date field (use its exact label from JSON), then type or select the date (e.g. "March 20")
+   - Finally click the Search button (use exact label from JSON)
 
 2. GOOGLE MAPS — Directions:
    - Click the "Directions" button first
@@ -129,9 +129,8 @@ CRITICAL RULES FOR REAL SITES:
 
 5. GENERAL RULES:
    - After ANY click that opens a new panel/page/dialog: add wait step with value "2"
-   - target_description MUST match the exact visible text in the UI state provided
-   - For text fields: click first to focus, then type
-   - For autocomplete: always add ArrowDown + Enter after typing to confirm the suggestion
+   - target_description MUST be copied from one of the "label" values in the elements array in the UI state JSON — no invented labels
+   - For text fields: click first to focus, then type, then wait ~1s, then key_press ArrowDown + Enter if it is an autocomplete field
    - Each step = ONE atomic action
    - Set requires_confirmation=true only for destructive actions (payment, delete, send)
 
@@ -428,9 +427,24 @@ class ActionAgent:
                     new_state=new_state,
                     narration=narration,
                 )
+            elif step.action_type == "type":
+                # After typing in a search/flight field, autocomplete often appears — re-analyze
+                # so the next step (e.g. click first suggestion, or ArrowDown+Enter) can use fresh state
+                await asyncio.sleep(1.0)
+                screenshot = await self.page.screenshot(type="png")
+                new_state = await self.analyzer.analyze_screenshot(screenshot)
+                narration = f"J'ai effectué {step.action_type} sur '{step.target_description}'."
+                return StepResult(
+                    step_index=step_index,
+                    success=True,
+                    action_performed=action_desc,
+                    ui_changes=[],
+                    new_state=new_state,
+                    narration=narration,
+                )
             else:
-                # Type, scroll, key_press → pas besoin de re-scanner
-                await asyncio.sleep(0.5)  # Légèrement allongé pour la fluidité
+                # Scroll, key_press → pas besoin de re-scanner
+                await asyncio.sleep(0.5)
                 narration = f"J'ai effectué {step.action_type} sur '{step.target_description}'."
                 return StepResult(
                     step_index=step_index,

@@ -121,6 +121,7 @@ RULES:
 - Include EVERY interactive element, even small icons
 - element_id must be unique and sequential (el_1, el_2, ...)
 - confidence reflects how sure you are this is an interactive element
+- For form inputs (flight search, search bars): set label to the placeholder or prompt text so it can be targeted (e.g. "Where from?", "Where to?", "Search"). If the field shows a current value (e.g. "Chicago, Illinois"), you may include it like "Where from? (Chicago)" or label the field so both placeholder and value are identifiable
 - Return ONLY valid JSON, no markdown, no explanation
 """
 
@@ -340,12 +341,35 @@ class AnalyzerAgent:
         logger.info(f"📡 Analyse publiée sur Pub/Sub — message_id={message_id}")
         return message_id
 
+    # Aliases for flight/search form fields so planner labels match Vision output.
+    FLIGHT_ORIGIN_ALIASES = (
+        "where from",
+        "origin",
+        "departure",
+        "from",
+        "flying from",
+        "leave from",
+        "departure city",
+        "origin city",
+        "where from?",
+    )
+    FLIGHT_DESTINATION_ALIASES = (
+        "where to",
+        "destination",
+        "arrival",
+        "to",
+        "going to",
+        "arrival city",
+        "destination city",
+        "where to?",
+    )
+
     def find_element_by_label(
         self, ui_state: UIState, label: str
     ) -> Optional[UIElement]:
         """
         Trouve un élément par son label — matching multi-stratégie.
-        Stratégies : exact > substring > word-overlap > best-effort.
+        Stratégies : exact > substring > word-overlap > alias (flight forms) > best-effort.
         Utilisé par l'Action Agent pour localiser les cibles.
         """
         label_lower = label.lower().strip()
@@ -384,6 +408,27 @@ class AnalyzerAgent:
                         best_score = score
                         best_match = el
 
+        # 4. Flight form alias match: if label describes origin/destination field,
+        # match any element whose label contains a known alias (e.g. Vision returns
+        # "Chicago, Illinois" for the origin field; planner says "Where from?").
+        if not best_match or best_score < 0.5:
+            label_for_aliases = label_lower
+            for alias_group, preferred_types in (
+                (self.FLIGHT_ORIGIN_ALIASES, ("input", "text_field", "search_bar")),
+                (self.FLIGHT_DESTINATION_ALIASES, ("input", "text_field", "search_bar")),
+            ):
+                if not any(a in label_for_aliases for a in alias_group):
+                    continue
+                for el in ui_state.elements:
+                    el_label_lower = el.label.lower().strip()
+                    if any(a in el_label_lower for a in alias_group):
+                        type_ok = (el.element_type or "").lower() in preferred_types
+                        best_match = el
+                        best_score = 0.6 if type_ok else 0.45
+                        break
+                if best_match and best_score >= 0.45:
+                    break
+
         if best_match and best_score > 0.1:
             logger.info(
                 f"🎯 Élément trouvé : '{best_match.label}' "
@@ -391,7 +436,7 @@ class AnalyzerAgent:
             )
             return best_match
 
-        # 4. Best-effort fallback — return the highest scoring match regardless of threshold
+        # 5. Best-effort fallback — return the highest scoring match regardless of threshold
         if best_match:
             logger.warning(
                 f"⚠️ Fallback match pour '{label}' → '{best_match.label}' "

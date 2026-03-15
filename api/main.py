@@ -638,9 +638,20 @@ async def _handle_ws_command(intent: str):
                 "type": "narration",
                 "text": f"Got it. Let me navigate to the right page for that..."
             })
-            await phantom.screenshot_agent.page.goto(inferred_url, wait_until="domcontentloaded", timeout=15000)
-            await asyncio.sleep(2)  # Let the page render
-            await broadcast({"type": "auto_navigate", "url": inferred_url})
+            try:
+                await phantom.screenshot_agent.page.goto(
+                    inferred_url, wait_until="domcontentloaded", timeout=25000
+                )
+                await asyncio.sleep(2)  # Let the page render
+                await broadcast({"type": "auto_navigate", "url": inferred_url})
+            except Exception as nav_err:
+                logger.warning(f"⚠️ Navigation failed: {nav_err}")
+                await broadcast({
+                    "type": "narration",
+                    "text": "That page couldn't be loaded (timeout or blocked). Try another URL or request."
+                })
+                await broadcast({"type": "error", "message": "Navigation failed. Try another command or URL."})
+                return
         else:
             await broadcast({
                 "type": "narration",
@@ -752,12 +763,13 @@ async def _handle_option_select(option_text: str):
             })
             await asyncio.sleep(2)  # Wait for page reaction
         else:
-            # Fallback: use the option text as a command for Gemini to plan
+            # Fallback: treat option as intent — plan and execute on current page (no navigation)
             await broadcast({
                 "type": "narration",
                 "text": f"Working on: {option_text}..."
             })
-            plan = await phantom.action_agent.generate_plan(option_text, ui_state)
+            intent_for_plan = f"On the current page, do exactly this: {option_text}. Use only element labels from the current UI state."
+            plan = await phantom.action_agent.generate_plan(intent_for_plan, ui_state)
             if plan.steps:
                 async def narrate(text):
                     payload = {"type": "narration", "text": text}
@@ -828,9 +840,10 @@ Return a JSON object with:
 
 RULES:
 - "text" must be concise, friendly, NO technical jargon (no "screenshots", "steps", "elements")
-- If there are search results/flights/products visible, list the top 2-4 as options
-- If the page is a form or landing page, suggest logical next actions as options
-- If nothing meaningful happened, say so honestly and suggest what to try
+- If the user's request is NOT yet reflected on the page (e.g. they asked for Paris–Dubai but the form still shows Chicago–Miami), say so clearly and make options that FULFIL the user request first (e.g. "Enter Paris as departure", "Enter Dubai as destination", "Set date to March 20"). Do NOT suggest options that reinforce the wrong state (e.g. "View flights to Miami" when the user wanted Dubai).
+- If the page already matches the request, suggest next steps (e.g. pick a flight, change dates).
+- If there are search results/flights/products visible that match the request, list the top 2-4 as options
+- If the page is a form or landing page, suggest actions that move toward the user's stated goal
 - Always provide at least 1-2 options so the user can interact
 - Return ONLY valid JSON, no markdown
 
